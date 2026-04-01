@@ -1,0 +1,28 @@
+* text=auto eol=lf
+
+*.cs text
+*.shader text
+*.cginc text
+*.compute text
+*.hlsl text
+*.json text
+*.md text
+*.meta text
+*.txt text
+*.unity text
+*.yaml text
+*.yml text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.tga binary
+*.psd binary
+*.fbx binary
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.mp4 binary
+*.mov binary
+*.unitypackage binary
