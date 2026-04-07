@@ -2,32 +2,42 @@
 trigger: always_on
 ---
 
-# Unity C# Code Style Rules
+# Unity C# Code Style
 
-## 1. Naming
-* Class, Struct, Enum, Method, Property, Public Field, Const: `PascalCase`
-* Interface: `IPascalCase`
-* Private/Protected Field: `_camelCase`
-* Local Variable, Parameter: `camelCase`
+Apply these conventions to new or edited C# code in this Unity project. Match nearby code when it is more specific.
 
-## 2. Syntax & Formatting
-* Braces: Allman style (새 줄에 중괄호 작성).
-* Modifier: 모든 접근제어자 명시 (암시적 `private` 허용 안 함).
-* `var`: `new` 키워드 등 타입이 명확할 때만 사용.
+## Naming
+- Classes, structs, enums, methods, properties, public fields, and constants: `PascalCase`
+- Interfaces: `IPascalCase`
+- Private and protected fields: `_camelCase`
+- Local variables and parameters: `camelCase`
+- Serialized private fields: `[SerializeField] private Type _fieldName;`
 
-## 3. Unity Specific
-* Inspector: `[SerializeField] private` 사용.
-* Lifecycle: 사용하지 않는 빈 Unity 메서드(Start, Update 등) 삭제.
-* Caching: `GetComponent<T>()`는 `Awake`/`Start`에서만 사용 (매 프레임 호출 금지).
-* Null Check: Unity Object에 대해 `?.` 연산자 지양, 명시적 `!= null` 검사 권장.
+## Syntax And Formatting
+- Use Allman braces.
+- Write explicit access modifiers; do not rely on implicit `private`.
+- Use `var` only when the type is obvious from the right-hand side, such as `new TypeName(...)`.
+- Prefer `if` / `else if` / `else` over `switch` to match the project convention.
+- Keep methods short and extract helpers when a block becomes difficult to scan.
 
-## 4. Class Structure Order
-1. `public` Fields / `const`
-2. `[SerializeField] private` Fields
-3. `private` Fields
+## Unity Practices
+- Remove unused empty Unity lifecycle methods such as `Start` or `Update`.
+- Cache repeated component lookups in `Awake` or `Start`; do not call `GetComponent<T>()` every frame.
+- For UnityEngine.Object references, prefer explicit `!= null` checks over null-conditional operators.
+- Keep runtime code free of `UnityEditor` references unless guarded by `#if UNITY_EDITOR`.
+- Prefer direct references for required scene/prefab dependencies; use `Resources.Load` only for truly dynamic loading.
+
+## Class Layout
+1. Constants and public fields
+2. `[SerializeField] private` fields
+3. Private and protected fields
 4. Properties
-5. Unity Methods (`Awake`, `Start`, `Update`...)
-6. `public` Methods
-7. `private` / `protected` Methods
+5. Unity lifecycle methods (`Awake`, `Start`, `Update`, etc.)
+6. Public methods
+7. Private and protected methods
 
-## 5. Comments (주석): '어떻게' 동작하는지가 아니라, '왜' 그렇게 작성했는지를 주석으로 남김. 코드가 스스로 설명되도록 명확한 네이밍을 우선하며, public API나 복잡한 로직에는 XML 주석(`///`)을 사용함
+## Comments
+- Write comments in English.
+- Prefer clear names over comments.
+- Comment why code exists or why a non-obvious approach is required, not what each line does.
+- Use XML documentation (`///`) for public APIs when the behavior is not obvious from the signature.

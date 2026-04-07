@@ -2,145 +2,44 @@
 trigger: always_on
 ---
 
-# global_rules.md
-Global rules for an AI agent (Unity / C# / MCP / Skills)
+# Codex Project Rules
 
-## 1. Goal
-The agent must operate as a **technical executor**, not a conversational assistant:
-- maximize practical actions in code/project;
-- maximize use of **Skills** and **MCP**;
-- minimize “human-ness” (emotions, apologies, excessive explanations);
-- minimize external scripts (bash/cmd/python) when built-in agent features or MCP can do the job.
+Use these rules when working in this Unity project. Prefer the repository's existing patterns over broad rewrites.
 
-## 2. Strict action priority (mandatory order)
-Before doing anything, the agent must pick the highest available option:
+## Operating Principles
+- Act as a practical coding collaborator: inspect the project, make scoped changes, verify them, and report clearly.
+- Preserve user work. Do not revert unrelated changes or regenerate project files unless the task requires it.
+- Keep changes minimal and local to the request.
+- Prefer built-in editor/project workflows, available MCP resources, and project skills when they fit the task.
+- Use shell commands for inspection, validation, and safe automation when they are the most direct option. Prefer `rg`/`rg --files` for search.
+- Do not invent MCP tools, Unity APIs, package names, or file paths. Verify them from local context first.
 
-1) **Built-in agent capabilities** (IDE actions / project ops / file ops / test runner / refactoring).
-2) **MCP tools** (if it can be done via MCP — do it via MCP).
-3) **Project Skills** (SKILL.md / references) — as instructions and the “action contract”.
-4) **Native Unity API (C#)** — code inside the project.
-5) **bash/cmd/python scripts** — ONLY if (1–4) cannot cover the task and scripting clearly speeds things up.
+## Project Skills
+- Check `.agents/skills/` before work that matches a project skill.
+- When a relevant skill exists, read its `SKILL.md` and follow it unless the current codebase clearly requires a different approach.
+- If a skill is stale or conflicts with the project, explain the conflict and keep the task scoped. Update the skill only when the user asks or the task directly depends on it.
 
-Forbidden: choosing (5) without proving (1–4) are not suitable.
+## Unity And C# Standards
+- Keep code compiling without new warnings where practical.
+- Use simple, readable C# and small focused classes.
+- Do not add new Unity packages, NuGet dependencies, or third-party assets unless explicitly requested.
+- Put editor-only code under an `Editor/` folder or guard it with `#if UNITY_EDITOR`.
+- Avoid fragile reflection and internal Unity APIs unless there is no stable alternative.
+- Maintain existing version guards such as `UNITY_6000_0_OR_NEWER` when editing nearby code.
+- Follow `.agents/rules/unity-code-style.md` for C# style.
 
-## 3. Mandatory use of Skills
-### 3.1. “Skill-first” rule
-Before starting any epic/task, the agent must:
-- find relevant skills in the working folder (skills/ or equivalent),
-- select 1–3 best matches,
-- briefly list which sections/steps of the skill will be used.
+## Assets And Project Files
+- Follow `.agents/skills/unity-asset-organization/SKILL.md` when organizing or renaming Unity assets.
+- Preserve `.meta` files and GUIDs. Move Unity assets with their `.meta` files when filesystem moves are necessary.
+- Do not edit generated Unity files or package lock files unless the requested change requires it.
+- Keep `Resources/` usage minimal; prefer direct references or Addressables for larger dynamic-loading needs.
 
-If a skill exists, the agent **must not** ignore it without explaining:
-- why the skill is not applicable (specific reason),
-- which alternative is used (MCP / built-in),
-- why that is better for the current task.
+## Validation
+- Run the smallest useful validation for the change: compile check, targeted tests, Unity Test Runner, or focused static inspection.
+- If Unity or tests cannot be run in the current environment, state that clearly and report what was checked instead.
+- Before final response, review the relevant diff and check that unrelated working tree changes were not modified.
 
-### 3.2. Skills ↔ MCP synchronization
-If a skill describes tools/commands:
-- the agent must verify they match real MCP tools (tools/list, etc.).
-- if mismatches exist — fix the skill/docs or the server (within task scope) so there are no “imaginary” tools.
-
-## 4. Mandatory use of MCP
-### 4.1. “MCP-over-manual” rule
-Any operation that can be done with an MCP tool (creating/modifying scenes, assets, GameObjects, components, build ops, project inspection, etc.) must be performed:
-- **via MCP**, not “manually” and not via external scripts.
-
-### 4.2. MCP is the source of truth for tools
-- The list of available tools and argument schemas comes from MCP (tools/list) or local tool catalog files.
-- The agent must not invent tool names/params.
-
-## 5. Production orientation (Unity / C#)
-### 5.1. Quality standards
-- Code must compile without errors (and ideally without warnings).
-- KISS / minimal changes / small classes.
-- Do not break existing project architecture.
-- Editor-only code must be under `#if UNITY_EDITOR`.
-- Do not add new dependencies (NuGet, third-party packages) unless explicitly allowed.
-
-### 5.2. Unity version stability
-If multiple Unity versions are supported:
-- avoid fragile internal APIs and reflection without fallback.
-- if conditional compilation exists (e.g., UNITY_6000_0_OR_NEWER) — maintain both branches.
-
-### 5.3. Style constraints
-- **Do not use `switch`, use `if`/`else`/`else if`.**
-- C# comments must be **English only**.
-- Public contracts (API/JSON/tool schemas) may change only if absolutely required, and then skills/docs/tests must be updated accordingly.
-
-## 6. Minimize “human-ness”
-Responses and reports must be:
-- short,
-- structured,
-- free of emotions/fluff/long reasoning.
-
-Forbidden:
-- “I think”, “maybe”, “it seems” without evidence.
-- long apologies.
-Allowed:
-- short risk/assumption notes (1–3 bullets).
-
-## 7. Minimize bash/cmd/python
-### 7.1. Default prohibition
-Any bash/cmd/python scripts are forbidden by default.
-
-### 7.2. When scripts are allowed (only if all conditions are met)
-A script is allowed only if:
-- the action cannot be performed via built-in agent features or MCP,
-- the script provides measurable benefit (bulk edits/generation/validation),
-- the script is short, one-off, safe, and requires no new dependencies.
-
-If scripting is used:
-- the agent must explain why MCP/built-in options are insufficient,
-- include execution results (log/output),
-- delete/not commit temporary scripts unless needed.
-
-## 8. Execution format (mandatory)
-For any change the agent must follow this cycle:
-
-1) **Inventory**
-   - which skills are used
-   - which MCP tools are used
-   - which files/modules will be touched
-
-2) **Plan**
-   - maximum 3–7 steps
-   - Definition of Done (clear acceptance criteria)
-
-3) **Execute**
-   - small commits/patches
-   - after each logical block — quick self-check
-
-4) **Test**
-   - minimum: compilation + smoke
-   - preferred: unit/integration tests (Unity Test Runner)
-
-5) **Report**
-   - what was done (bullets)
-   - which files changed
-   - which tests passed
-   - what remains/risks
-
-## 9. Global Definition of Done
-A task is complete only if:
-- changes are verified by tests/checks;
-- skills and MCP reality are consistent (no “dead” tools in docs);
-- no new compile errors;
-- no accidental/unrelated changes.
-
-## 10. Quick checklists
-### Before coding
-- [ ] Found and selected skills
-- [ ] Checked MCP tools/list (when working with tools/endpoints)
-- [ ] Determined Editor vs Runtime scope
-
-### Before committing
-- [ ] Minimal changes
-- [ ] No `switch`
-- [ ] Comments are EN only
-- [ ] No unnecessary bash/cmd/python scripts
-
-### Before final response
-- [ ] Summary of changes
-- [ ] File list
-- [ ] Tests (PASS/FAIL)
-- [ ] Remaining items/risks (if any)
+## Reporting
+- Keep final reports concise.
+- Include what changed, which validation was run, and any remaining risk.
+- Mention unrelated pre-existing changes only when they affect the task or explain why they were left untouched.

@@ -1,6 +1,6 @@
 ---
 name: unity-asset-organization
-description: "Asset folder structure, naming conventions, and prefab organization best practices"
+description: "Unity asset organization guidance. Use when organizing Unity Assets folders, renaming assets, reviewing prefab/UI/Resources layout, or proposing asset naming conventions and folder structure."
 ---
 
 # Unity Asset Organization
@@ -9,10 +9,13 @@ description: "Asset folder structure, naming conventions, and prefab organizatio
 Standards for organizing assets, naming conventions, and folder structure to maintain clean, scalable Unity projects.
 
 ## Folder Structure
+Use `Assets/Project/` for project-owned assets. If a project already uses `_Project/` to force the folder to the top of Unity's Project window, keep that existing convention instead of renaming it.
+
+Use type-based folders for shared raw assets such as materials, textures, shaders, models, audio, and animations. Use feature/system grouping inside prefabs, UI, scripts, and scene-specific content when that keeps related work together.
 
 ```
 Assets/
-├── Project/              # Project-specific assets (underscore keeps at top)
+├── Project/              # Project-specific assets
 │   ├── Data/
 │   │   ├── Materials/
 │   │   ├── Textures/
@@ -20,10 +23,11 @@ Assets/
 │   │   ├── Models/
 │   │   ├── VFX/
 │   │   ├── Audio/
-│   │   │	├── Music/
-│   │   │	└── SFX/
+│   │   │   ├── Music/
+│   │   │   └── SFX/
 │   │   └── Animations/
 │   ├── Prefabs/
+│   │   ├── Gameplay/
 │   │   ├── UI/
 │   │   └── VFX/
 │   ├── Scenes/
@@ -42,21 +46,23 @@ Assets/
 ## Naming Conventions
 
 ### General Rules
-- Use **PascalCase** for all asset names
+- Use **PascalCase** for the descriptive base name
+- Use underscores only for approved type prefixes, category prefixes, and texture suffixes
 - Be descriptive: `PlayerHealthBar` not `HealthBar1`
-- Include type suffix where helpful: `PlayerController`, `EnemyPrefab`
+- Include type suffix where helpful: `PlayerController`, `PlayerStats`
+- Do not add redundant suffixes when the file extension already communicates the type, such as `Enemy.prefab` instead of `EnemyPrefab.prefab`
 
 ### Prefixes by Type
 | Type | Prefix | Example |
 |------|--------|---------|
-| Prefab | - | `Player.prefab` |
+| Prefab | Optional domain prefix | `Player.prefab`, `Enemy_Goblin.prefab`, `UI_HealthBar.prefab`, `VFX_Explosion.prefab` |
 | Material | M_ | `M_Metal.mat` |
 | Texture | T_ | `T_Wood_Diffuse.png` |
 | UI Sprite | UI_ | `UI_Button_Normal.png` |
 | Animation | Anim_ | `Anim_Run.anim` |
 | Animator | AC_ | `AC_Player.controller` |
 | ScriptableObject | SO_ | `SO_PlayerStats.asset` |
-| Audio Clip | - | `SFX_Jump.wav` |
+| Audio Clip | SFX_ / Music_ / VO_ | `SFX_Jump.wav`, `Music_BattleLoop.wav`, `VO_NarratorIntro.wav` |
 
 ### Texture Suffixes
 | Suffix | Purpose |
@@ -71,7 +77,7 @@ Assets/
 ## Prefab Best Practices
 
 ### Organization
-- Group by feature/system, not by Unity type
+- Group prefabs by feature/system when possible, not only by Unity type
 - One prefab per file
 - Keep prefab hierarchies shallow (max 3-4 levels)
 
@@ -115,14 +121,17 @@ Use sparingly - everything in Resources is included in build.
 var prefab = Resources.Load<GameObject>("Prefabs/DynamicItem");
 ```
 
+## Class Structure
+- Keep Track C:\Users\yls11\Uni_Virtual_Projects\Dynamic 3D Movement\.agents\references\architecture\class-diagram.md updated with new classes and their relationships to assets.
+
 **Prefer**: Addressables or direct references for most assets.
 
 ## Best Practices
 - ✅ Use consistent naming across entire project
-- ✅ Group by feature, not by asset type
+- ✅ Group shared raw assets by type and gameplay-facing assets by feature/system
 - ✅ Keep Resources folder minimal
 - ✅ Use Addressables for large projects
-- ✅ Document custom conventions in README
+- ✅ Document project-specific exceptions in the project README or team docs
 - ❌ **NEVER** use spaces in asset names
-- ❌ **NEVER** use special characters (except underscore)
+- ❌ **NEVER** use special characters outside the project's approved separators
 - ❌ **NEVER** scatter related assets across folders
