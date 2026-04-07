@@ -19,21 +19,35 @@ class PlayerInputReader {
 }
 
 class PlayerContext {
-    +Vector2 moveInput
-    +Vector2 lookInput
-    +Vector3 moveDirection
-    +bool jumpRequested
-    +bool dashRequested
-    +Vector3 dashDirection
+    +PlayerFrameInput FrameInput
+    +Vector2 MoveInput
+    +Vector2 LookInput
+    +Vector3 MoveDirection
+    +bool JumpPressed
+    +bool DashPressed
+    +bool JumpRequested
+    +bool DashRequested
+    +Vector3 DashDirection
+    +bool RunHeld
+    +SetFrameInput(PlayerFrameInput frameInput)
+    +ClearFrameInput()
+}
+
+class PlayerFrameInput {
+    +Vector2 MoveInput
+    +Vector2 LookInput
+    +bool JumpPressed
+    +bool DashPressed
+    +bool RunHeld
     +ClearFrameInput()
 }
 
 class PlayerCharacterController {
-    +KinematicCharacterMotor motor
-    +PlayerContext context
-    +float moveSpeed
-    +float jumpSpeed
-    +float gravity
+    +KinematicCharacterMotor Motor
+    +PlayerContext Context
+    +float MoveSpeed
+    +float JumpSpeed
+    +float Gravity
     +SetInputs(PlayerContext context)
     +UpdateVelocity(ref Vector3 velocity, float deltaTime)
     +UpdateRotation(ref Quaternion rotation, float deltaTime)
@@ -168,6 +182,7 @@ PlayerStateMachine --> StaminaManager
 PlayerStateMachine --> PlayerAnimationController
 
 PlayerInputReader --> PlayerContext
+PlayerContext --> PlayerFrameInput
 PlayerCharacterController --> PlayerContext
 
 LocomotionStateMachine --> RootLocomotionState

@@ -1,11 +1,12 @@
 {
-    "name": "Dynamic3DMovement.Runtime",
+    "name": "KinematicCharacterController.Editor",
     "rootNamespace": "",
     "references": [
-        "KinematicCharacterController.Runtime",
-        "Unity.InputSystem"
+        "KinematicCharacterController.Runtime"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

@@ -7,8 +7,12 @@ public sealed class PlayerContext : MonoBehaviour
     public PlayerFrameInput FrameInput => _frameInput;
     public Vector2 MoveInput => _frameInput.MoveInput;
     public Vector2 LookInput => _frameInput.LookInput;
+    public Vector3 MoveDirection => new Vector3(_frameInput.MoveInput.x, 0f, _frameInput.MoveInput.y);
     public bool JumpPressed => _frameInput.JumpPressed;
     public bool DashPressed => _frameInput.DashPressed;
+    public bool JumpRequested => _frameInput.JumpPressed;
+    public bool DashRequested => _frameInput.DashPressed;
+    public Vector3 DashDirection => MoveDirection;
     public bool RunHeld => _frameInput.RunHeld;
 
     /// <summary>
