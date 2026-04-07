@@ -23,6 +23,9 @@ public struct PlayerFrameInput
         RunHeld = runHeld;
     }
 
+    /// <summary>
+    /// Preserves held input while preventing transient input from being consumed twice.
+    /// </summary>
     public PlayerFrameInput ClearFrameInput()
     {
         return new PlayerFrameInput(MoveInput, Vector2.zero, false, false, RunHeld);

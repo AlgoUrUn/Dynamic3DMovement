@@ -62,6 +62,7 @@ public sealed class PlayerInputReaderTests : InputTestFixture
 
     private void PressInput(ButtonControl control)
     {
+        // Avoid a second InputSystem.Update because it would clear wasPressedThisFrame.
         Press(control);
     }
 }

@@ -11,11 +11,17 @@ public sealed class PlayerContext : MonoBehaviour
     public bool DashPressed => _frameInput.DashPressed;
     public bool RunHeld => _frameInput.RunHeld;
 
+    /// <summary>
+    /// Stores input outside the reader so movement systems do not depend on input device details.
+    /// </summary>
     public void SetFrameInput(PlayerFrameInput frameInput)
     {
         _frameInput = frameInput;
     }
 
+    /// <summary>
+    /// Drops transient input after consumers have had a frame to react.
+    /// </summary>
     public void ClearFrameInput()
     {
         _frameInput = _frameInput.ClearFrameInput();

@@ -46,6 +46,7 @@ public class PlayerInputReader : MonoBehaviour
 
     private void OnEnable()
     {
+        // Serialized references may have changed while disabled, so resolve before enabling.
         ResolvePlayerContext();
         ResolveActions();
         EnableActions();
@@ -65,15 +66,22 @@ public class PlayerInputReader : MonoBehaviour
 
     private void LateUpdate()
     {
+        // Clear after Update so other player systems have one frame to consume impulses.
         ClearFrameInput();
     }
 
+    /// <summary>
+    /// Keeps the reader cache and PlayerContext synchronized for systems that read context data.
+    /// </summary>
     public void RefreshInputContext()
     {
         ReadInput();
         ApplyInputToContext();
     }
 
+    /// <summary>
+    /// Supports tests and manual refreshes without requiring the MonoBehaviour update loop.
+    /// </summary>
     public void ReadInput()
     {
         moveInput = ReadVector2(_moveAction, ReadFallbackMoveInput());
@@ -108,12 +116,18 @@ public class PlayerInputReader : MonoBehaviour
         return runHeld;
     }
 
+    /// <summary>
+    /// Prevents one-frame impulses from leaking into a later frame after input is disabled.
+    /// </summary>
     public void ClearOneShotInputs()
     {
         jumpPressed = false;
         dashPressed = false;
     }
 
+    /// <summary>
+    /// Clears frame-scoped values while preserving held state needed by the next frame.
+    /// </summary>
     public void ClearFrameInput()
     {
         lookInput = Vector2.zero;
@@ -144,6 +158,7 @@ public class PlayerInputReader : MonoBehaviour
 
     private void ResolvePlayerContext()
     {
+        // Same-object fallback keeps scene setup lightweight while still allowing overrides.
         if (_playerContext != null)
         {
             return;
@@ -237,6 +252,7 @@ public class PlayerInputReader : MonoBehaviour
 
     private Vector2 ReadFallbackMoveInput()
     {
+        // Fallback keeps the prototype usable before InputActionAsset wiring is complete.
         var move = Vector2.zero;
 
         if (Keyboard.current != null)
@@ -277,6 +293,7 @@ public class PlayerInputReader : MonoBehaviour
 
     private Vector2 ReadFallbackLookInput()
     {
+        // Fallback keeps camera input available before InputActionAsset wiring is complete.
         var look = Vector2.zero;
 
         if (Mouse.current != null)
