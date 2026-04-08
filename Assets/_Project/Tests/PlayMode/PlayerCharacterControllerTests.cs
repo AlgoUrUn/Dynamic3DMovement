@@ -40,9 +40,27 @@ public sealed class PlayerCharacterControllerTests
         Assert.That(velocity.y, Is.EqualTo(-15f).Within(0.0001f));
     }
 
+    [Test]
+    public void PostGroundingUpdate_RefreshesGroundDetectorFromMotor()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero);
+
+        controller.Motor.GroundingStatus.FoundAnyGround = true;
+        controller.Motor.GroundingStatus.IsStableOnGround = true;
+        controller.Motor.GroundingStatus.GroundNormal = Vector3.up;
+        controller.PostGroundingUpdate(0f);
+
+        Assert.That(controller.GroundDetector, Is.Not.Null);
+        Assert.That(controller.GroundDetector.IsGrounded, Is.True);
+        Assert.That(controller.GroundDetector.LandedThisFrame, Is.True);
+    }
+
     private PlayerCharacterController CreateControllerWithInput(Vector2 moveInput)
     {
         _playerObject = new GameObject("Player");
+        _playerObject.AddComponent<CapsuleCollider>();
+        _playerObject.AddComponent<KinematicCharacterController.KinematicCharacterMotor>();
+        _playerObject.AddComponent<GroundDetector>();
         var context = _playerObject.AddComponent<PlayerContext>();
         var controller = _playerObject.AddComponent<PlayerCharacterController>();
 

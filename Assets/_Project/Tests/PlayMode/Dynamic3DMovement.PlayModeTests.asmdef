@@ -3,6 +3,7 @@
     "rootNamespace": "",
     "references": [
         "Dynamic3DMovement.Runtime",
+        "KinematicCharacterController.Runtime",
         "Unity.InputSystem",
         "Unity.InputSystem.TestFramework",
         "UnityEngine.TestRunner",

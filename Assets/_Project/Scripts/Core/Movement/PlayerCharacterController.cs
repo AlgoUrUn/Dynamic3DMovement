@@ -5,12 +5,14 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
 {
     [SerializeField] private KinematicCharacterMotor _motor;
     [SerializeField] private PlayerContext _context;
+    [SerializeField] private GroundDetector _groundDetector;
     [SerializeField] private float _moveSpeed = 6f;
     [SerializeField] private float _jumpSpeed = 8f;
     [SerializeField] private float _gravity = 30f;
 
     public KinematicCharacterMotor Motor => _motor;
     public PlayerContext Context => _context;
+    public GroundDetector GroundDetector => _groundDetector;
     public float MoveSpeed => _moveSpeed;
     public float JumpSpeed => _jumpSpeed;
     public float Gravity => _gravity;
@@ -54,7 +56,10 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
 
     public void PostGroundingUpdate(float deltaTime)
     {
-        // Grounding reactions are deferred until grounded/airborne states exist.
+        if (_groundDetector != null)
+        {
+            _groundDetector.RefreshFromMotor();
+        }
     }
 
     public void AfterCharacterUpdate(float deltaTime)
@@ -112,6 +117,11 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         if (_context == null)
         {
             _context = GetComponent<PlayerContext>();
+        }
+
+        if (_groundDetector == null)
+        {
+            _groundDetector = GetComponent<GroundDetector>();
         }
     }
 
