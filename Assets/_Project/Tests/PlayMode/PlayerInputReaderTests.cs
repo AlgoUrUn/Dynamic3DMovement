@@ -52,6 +52,24 @@ public sealed class PlayerInputReaderTests : InputTestFixture
         Assert.That(context.DashPressed, Is.False);
     }
 
+    [Test]
+    public void ClearFrameInput_KeepsBufferedJumpRequestUntilConsumed()
+    {
+        var keyboard = InputSystem.AddDevice<Keyboard>();
+        PressInput(keyboard.spaceKey);
+
+        var context = CreatePlayerWithInputReader(out var reader);
+
+        reader.RefreshInputContext();
+        reader.ClearFrameInput();
+
+        Assert.That(context.JumpPressed, Is.False);
+        Assert.That(context.JumpRequested, Is.True);
+
+        Assert.That(context.ConsumeJumpRequest(), Is.True);
+        Assert.That(context.JumpRequested, Is.False);
+    }
+
     private PlayerContext CreatePlayerWithInputReader(out PlayerInputReader reader)
     {
         _playerObject = new GameObject("Player");

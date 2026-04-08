@@ -154,6 +154,7 @@ public class PlayerInputReader : MonoBehaviour
             jumpPressed,
             dashPressed,
             runHeld));
+        Debug.Log("Applied input to context");
     }
 
     private void ResolvePlayerContext()

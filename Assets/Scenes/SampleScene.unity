@@ -399,6 +399,7 @@ GameObject:
   - component: {fileID: 697816739}
   - component: {fileID: 697816738}
   - component: {fileID: 697816737}
+  - component: {fileID: 697816740}
   m_Layer: 0
   m_Name: Capsule
   m_TagString: Untagged
@@ -515,7 +516,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerInputReader
   _inputActions: {fileID: -944628639613478452, guid: ec00d2f5f29cbc64fb6edc173a1544f7, type: 3}
-  _playerContext: {fileID: 0}
+  _playerContext: {fileID: 697816738}
   _actionMapName: Player
   _logInput: 1
   _logOnlyWhenChanged: 1
@@ -580,6 +581,7 @@ MonoBehaviour:
     <JumpPressed>k__BackingField: 0
     <DashPressed>k__BackingField: 0
     <RunHeld>k__BackingField: 0
+  _jumpBufferDuration: 0.2
 --- !u!114 &697816739
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -594,9 +596,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: Dynamic3DMovement.Runtime::PlayerCharacterController
   _motor: {fileID: 697816737}
   _context: {fileID: 697816738}
+  _groundDetector: {fileID: 697816740}
   _moveSpeed: 6
   _jumpSpeed: 8
   _gravity: 30
+  _upwardGravityMultiplier: 0.5
+  _fallGravityMultiplier: 1.25
+--- !u!114 &697816740
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 697816731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 55dd2f5f633b4ad7b841f11db789db5b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Dynamic3DMovement.Runtime::GroundDetector
+  _motor: {fileID: 697816737}
+  _logGroundState: 0
+  _logOnlyWhenChanged: 0
+  _logInterval: 0.25
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0

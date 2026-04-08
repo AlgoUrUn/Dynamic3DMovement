@@ -9,6 +9,8 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     [SerializeField] private float _moveSpeed = 6f;
     [SerializeField] private float _jumpSpeed = 8f;
     [SerializeField] private float _gravity = 30f;
+    [SerializeField] private float _upwardGravityMultiplier = 0.75f;
+    [SerializeField] private float _fallGravityMultiplier = 1.25f;
 
     public KinematicCharacterMotor Motor => _motor;
     public PlayerContext Context => _context;
@@ -16,6 +18,8 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public float MoveSpeed => _moveSpeed;
     public float JumpSpeed => _jumpSpeed;
     public float Gravity => _gravity;
+    public float UpwardGravityMultiplier => _upwardGravityMultiplier;
+    public float FallGravityMultiplier => _fallGravityMultiplier;
 
     private void Awake()
     {
@@ -46,7 +50,27 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
 
         currentVelocity.x = moveDirection.x * _moveSpeed;
         currentVelocity.z = moveDirection.z * _moveSpeed;
-        currentVelocity.y -= _gravity * deltaTime;
+
+        if (CanJump())
+        {
+            Debug.Log("Jump!");
+            _context.ConsumeJumpRequest();
+            currentVelocity.y = _jumpSpeed;
+
+            if (_motor != null)
+            {
+                _motor.ForceUnground();
+            }
+        }
+        else if (IsStableOnGround() && currentVelocity.y < 0f)
+        {
+            currentVelocity.y = 0f;
+        }
+
+        if (!IsStableOnGround() || currentVelocity.y > 0f)
+        {
+            currentVelocity.y -= GetGravityScale(currentVelocity.y) * _gravity * deltaTime;
+        }
     }
 
     public void BeforeCharacterUpdate(float deltaTime)
@@ -142,5 +166,35 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         }
 
         return Vector3.ClampMagnitude(_context.MoveDirection, 1f);
+    }
+
+    private bool CanJump()
+    {
+        return _context != null && _context.JumpRequested && IsStableOnGround();
+    }
+
+    private bool IsStableOnGround()
+    {
+        if (_groundDetector != null)
+        {
+            return _groundDetector.IsStableOnGround;
+        }
+
+        return _motor != null && _motor.GroundingStatus.IsStableOnGround;
+    }
+
+    private float GetGravityScale(float verticalVelocity)
+    {
+        if (verticalVelocity > 0f)
+        {
+            return _upwardGravityMultiplier;
+        }
+
+        if (verticalVelocity < 0f)
+        {
+            return _fallGravityMultiplier;
+        }
+
+        return 1f;
     }
 }

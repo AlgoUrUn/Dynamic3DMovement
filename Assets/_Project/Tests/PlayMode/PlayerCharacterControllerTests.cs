@@ -41,6 +41,58 @@ public sealed class PlayerCharacterControllerTests
     }
 
     [Test]
+    public void UpdateVelocity_JumpsOnlyWhenGrounded()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero, jumpPressed: true);
+        var velocity = Vector3.zero;
+
+        SetGrounded(controller, isGrounded: true);
+        controller.UpdateVelocity(ref velocity, 0f);
+
+        Assert.That(velocity.y, Is.EqualTo(controller.JumpSpeed).Within(0.0001f));
+    }
+
+    [Test]
+    public void UpdateVelocity_ConsumesBufferedJumpAfterFrameInputWasCleared()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero, jumpPressed: true);
+        var velocity = Vector3.zero;
+
+        controller.Context.ClearFrameInput();
+        SetGrounded(controller, isGrounded: true);
+        controller.UpdateVelocity(ref velocity, 0f);
+
+        Assert.That(velocity.y, Is.EqualTo(controller.JumpSpeed).Within(0.0001f));
+        Assert.That(controller.Context.JumpRequested, Is.False);
+    }
+
+    [Test]
+    public void UpdateVelocity_DoesNotJumpWhileAirborne()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero, jumpPressed: true);
+        var velocity = Vector3.zero;
+
+        SetGrounded(controller, isGrounded: false);
+        controller.UpdateVelocity(ref velocity, 0.5f);
+
+        Assert.That(velocity.y, Is.EqualTo(-15f).Within(0.0001f));
+    }
+
+    [Test]
+    public void UpdateVelocity_UsesSofterGravityWhileRisingAndStrongerGravityWhileFalling()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero);
+        var risingVelocity = Vector3.up * controller.JumpSpeed;
+        var fallingVelocity = Vector3.down * 10f;
+
+        controller.UpdateVelocity(ref risingVelocity, 0.1f);
+        controller.UpdateVelocity(ref fallingVelocity, 0.1f);
+
+        Assert.That(risingVelocity.y, Is.EqualTo(5.75f).Within(0.0001f));
+        Assert.That(fallingVelocity.y, Is.EqualTo(-13.75f).Within(0.0001f));
+    }
+
+    [Test]
     public void PostGroundingUpdate_RefreshesGroundDetectorFromMotor()
     {
         var controller = CreateControllerWithInput(Vector2.zero);
@@ -55,7 +107,7 @@ public sealed class PlayerCharacterControllerTests
         Assert.That(controller.GroundDetector.LandedThisFrame, Is.True);
     }
 
-    private PlayerCharacterController CreateControllerWithInput(Vector2 moveInput)
+    private PlayerCharacterController CreateControllerWithInput(Vector2 moveInput, bool jumpPressed = false)
     {
         _playerObject = new GameObject("Player");
         _playerObject.AddComponent<CapsuleCollider>();
@@ -64,9 +116,19 @@ public sealed class PlayerCharacterControllerTests
         var context = _playerObject.AddComponent<PlayerContext>();
         var controller = _playerObject.AddComponent<PlayerCharacterController>();
 
-        context.SetFrameInput(new PlayerFrameInput(moveInput, Vector2.zero, false, false, false));
+        context.SetFrameInput(new PlayerFrameInput(moveInput, Vector2.zero, jumpPressed, false, false));
         controller.SetInputs(context);
 
         return controller;
+    }
+
+    private void SetGrounded(PlayerCharacterController controller, bool isGrounded)
+    {
+        controller.GroundDetector.Refresh(new KinematicCharacterController.CharacterGroundingReport
+        {
+            FoundAnyGround = isGrounded,
+            IsStableOnGround = isGrounded,
+            GroundNormal = Vector3.up,
+        });
     }
 }
