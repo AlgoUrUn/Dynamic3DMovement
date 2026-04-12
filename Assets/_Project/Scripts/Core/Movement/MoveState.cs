@@ -5,7 +5,7 @@ public sealed class MoveState : SubState
     {
     }
 
-    public override SubState GetTransition()
+    public override ISubState GetTransition()
     {
         if (!Owner.HasMoveInput())
         {

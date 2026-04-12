@@ -14,6 +14,7 @@ public class PlayerInputReader : MonoBehaviour
     [SerializeField] private InputActionAsset _inputActions;
     [SerializeField] private PlayerContext _playerContext;
     [SerializeField] private string _actionMapName = DefaultActionMapName;
+    [SerializeField] private bool _useInternalUpdateLoop = true;
     [SerializeField] private bool _logInput;
     [SerializeField] private bool _logOnlyWhenChanged = true;
     [SerializeField] private float _logInterval = 0.25f;
@@ -60,12 +61,22 @@ public class PlayerInputReader : MonoBehaviour
 
     private void Update()
     {
+        if (!_useInternalUpdateLoop)
+        {
+            return;
+        }
+
         RefreshInputContext();
         LogInputState();
     }
 
     private void LateUpdate()
     {
+        if (!_useInternalUpdateLoop)
+        {
+            return;
+        }
+
         // Clear after Update so other player systems have one frame to consume impulses.
         ClearFrameInput();
     }
@@ -114,6 +125,11 @@ public class PlayerInputReader : MonoBehaviour
     public bool IsRunHeld()
     {
         return runHeld;
+    }
+
+    public void SetUseInternalUpdateLoop(bool useInternalUpdateLoop)
+    {
+        _useInternalUpdateLoop = useInternalUpdateLoop;
     }
 
     /// <summary>

@@ -11,6 +11,7 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     [SerializeField] private float _gravity = 30f;
     [SerializeField] private float _upwardGravityMultiplier = 0.75f;
     [SerializeField] private float _fallGravityMultiplier = 1.25f;
+    [SerializeField] private bool _logStateTransitions;
 
     public KinematicCharacterMotor Motor => _motor;
     public PlayerContext Context => _context;
@@ -22,6 +23,8 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public float FallGravityMultiplier => _fallGravityMultiplier;
     public string CurrentLocomotionStateName => _locomotionStateMachine?.CurrentStateName;
     public string CurrentGroundedSubStateName => _locomotionStateMachine?.CurrentGroundedSubStateName;
+    public string CurrentAirborneSubStateName => _locomotionStateMachine?.CurrentAirborneSubStateName;
+    public float LastKnownVerticalVelocity { get; private set; }
 
     private LocomotionStateMachine _locomotionStateMachine;
 
@@ -41,6 +44,21 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         _context = context;
     }
 
+    public void UpdateContext(PlayerContext context)
+    {
+        SetInputs(context);
+    }
+
+    public void UpdateStates()
+    {
+        _locomotionStateMachine?.UpdateStates();
+    }
+
+    public void SendIntentToMotor()
+    {
+        RegisterWithMotor();
+    }
+
     public void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
     {
         _locomotionStateMachine?.UpdateRotation(ref currentRotation, deltaTime);
@@ -52,6 +70,7 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public void UpdateVelocity(ref Vector3 currentVelocity, float deltaTime)
     {
         _locomotionStateMachine?.UpdateVelocity(ref currentVelocity, deltaTime);
+        LastKnownVerticalVelocity = currentVelocity.y;
     }
 
     public void BeforeCharacterUpdate(float deltaTime)
@@ -179,6 +198,18 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public bool HasMoveInput()
     {
         return _context != null && _context.MoveInput.sqrMagnitude > 0.0001f;
+    }
+
+    public void LogStateTransition(string machineName, string previousStateName, string nextStateName)
+    {
+        if (!_logStateTransitions)
+        {
+            return;
+        }
+
+        Debug.Log(
+            $"[StateTransition] {machineName}: {previousStateName} -> {nextStateName}",
+            this);
     }
 
     private void ResolveReferences()

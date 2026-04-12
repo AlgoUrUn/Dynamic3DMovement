@@ -1,11 +1,20 @@
-public sealed class SubStateMachine
+public sealed class SubStateMachine<TState> where TState : class, ISubState
 {
-    private SubState _currentState;
-    private SubState _requestedState;
+    private readonly string _machineName;
+    private readonly System.Action<string, string, string> _transitionLogger;
 
-    public SubState CurrentState => _currentState;
+    private TState _currentState;
+    private TState _requestedState;
 
-    public void Initialize(SubState initialState)
+    public SubStateMachine(string machineName, System.Action<string, string, string> transitionLogger)
+    {
+        _machineName = machineName;
+        _transitionLogger = transitionLogger;
+    }
+
+    public TState CurrentState => _currentState;
+
+    public void Initialize(TState initialState)
     {
         TransitionTo(initialState);
     }
@@ -25,10 +34,10 @@ public sealed class SubStateMachine
     public void AfterUpdate(float deltaTime)
     {
         _currentState?.AfterUpdate(deltaTime);
-        ResolveTransition(_currentState?.GetTransition());
+        ResolveTransition(_currentState?.GetTransition() as TState);
     }
 
-    public void RequestTransition(SubState nextState)
+    public void RequestTransition(TState nextState)
     {
         if (nextState == null || nextState == _currentState)
         {
@@ -43,7 +52,7 @@ public sealed class SubStateMachine
         ResolveTransition(_requestedState);
     }
 
-    private void ResolveTransition(SubState nextState)
+    private void ResolveTransition(TState nextState)
     {
         if (nextState == null || nextState == _currentState)
         {
@@ -55,11 +64,15 @@ public sealed class SubStateMachine
         _requestedState = null;
     }
 
-    private void TransitionTo(SubState nextState)
+    private void TransitionTo(TState nextState)
     {
+        TState previousState = _currentState;
         _currentState?.OnExit(nextState);
-        SubState previousState = _currentState;
         _currentState = nextState;
+        _transitionLogger?.Invoke(
+            _machineName,
+            previousState?.GetType().Name ?? "None",
+            nextState.GetType().Name);
         _currentState.OnEnter(previousState);
     }
 }

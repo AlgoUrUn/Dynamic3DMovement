@@ -22,6 +22,7 @@ public sealed class LocomotionStateMachine
     public AirborneState AirborneState => _airborneState;
     public string CurrentStateName => _currentState?.GetType().Name;
     public string CurrentGroundedSubStateName => _groundedState.CurrentSubStateName;
+    public string CurrentAirborneSubStateName => _airborneState.CurrentSubStateName;
 
     public void Initialize()
     {
@@ -97,6 +98,12 @@ public sealed class LocomotionStateMachine
         _currentState?.OnDiscreteCollisionDetected(hitCollider);
     }
 
+    public void UpdateStates()
+    {
+        // State progression continues in KCC callbacks; this method exists so the player-level
+        // orchestration flow can explicitly include locomotion state evaluation.
+    }
+
     public void RequestTransition(RootLocomotionState nextState)
     {
         if (nextState == null || nextState == _currentState)
@@ -126,9 +133,13 @@ public sealed class LocomotionStateMachine
 
     private void TransitionTo(RootLocomotionState nextState)
     {
-        _currentState?.OnExit(nextState);
         RootLocomotionState previousState = _currentState;
+        _currentState?.OnExit(nextState);
         _currentState = nextState;
+        _controller.LogStateTransition(
+            nameof(LocomotionStateMachine),
+            previousState?.GetType().Name ?? "None",
+            nextState.GetType().Name);
         _currentState.OnEnter(previousState);
     }
 }

@@ -2,14 +2,16 @@ using UnityEngine;
 
 public sealed class GroundedState : RootLocomotionState
 {
-    private readonly SubStateMachine _subStateMachine;
+    private readonly SubStateMachine<SubState> _subStateMachine;
     private readonly IdleState _idleState;
     private readonly MoveState _moveState;
 
     public GroundedState(LocomotionStateMachine stateMachine, PlayerCharacterController controller)
         : base(stateMachine, controller)
     {
-        _subStateMachine = new SubStateMachine();
+        _subStateMachine = new SubStateMachine<SubState>(
+            "GroundedSubStateMachine",
+            controller.LogStateTransition);
         _idleState = new IdleState(this);
         _moveState = new MoveState(this);
     }
@@ -35,6 +37,7 @@ public sealed class GroundedState : RootLocomotionState
 
         if (Controller.TryConsumeJump(ref currentVelocity))
         {
+            StateMachine.AirborneState.PrepareForJump();
             StateMachine.RequestTransition(StateMachine.AirborneState);
         }
         else

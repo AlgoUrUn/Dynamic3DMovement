@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 330585545}
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
+  - component: {fileID: 330585548}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -256,6 +257,29 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &330585548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: abd0f99e377dfaa428360bafb0eb6d95, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Dynamic3DMovement.Runtime::CameraPointer
+  _inputReader: {fileID: 697816736}
+  _playerContext: {fileID: 697816738}
+  _yawMotor: {fileID: 0}
+  _yawTarget: {fileID: 697816735}
+  _pitchTarget: {fileID: 697816735}
+  _horizontalSensitivity: 0.12
+  _verticalSensitivity: 0.12
+  _minPitch: -80
+  _maxPitch: 80
+  _invertY: 0
+  _lockCursor: 1
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -400,6 +424,7 @@ GameObject:
   - component: {fileID: 697816738}
   - component: {fileID: 697816737}
   - component: {fileID: 697816740}
+  - component: {fileID: 697816741}
   m_Layer: 0
   m_Name: Capsule
   m_TagString: Untagged
@@ -518,8 +543,9 @@ MonoBehaviour:
   _inputActions: {fileID: -944628639613478452, guid: ec00d2f5f29cbc64fb6edc173a1544f7, type: 3}
   _playerContext: {fileID: 697816738}
   _actionMapName: Player
-  _logInput: 1
-  _logOnlyWhenChanged: 1
+  _useInternalUpdateLoop: 1
+  _logInput: 0
+  _logOnlyWhenChanged: 0
   _logInterval: 0.25
 --- !u!114 &697816737
 MonoBehaviour:
@@ -582,6 +608,7 @@ MonoBehaviour:
     <DashPressed>k__BackingField: 0
     <RunHeld>k__BackingField: 0
   _jumpBufferDuration: 0.2
+  _movementReference: {fileID: 0}
 --- !u!114 &697816739
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -602,6 +629,7 @@ MonoBehaviour:
   _gravity: 30
   _upwardGravityMultiplier: 0.5
   _fallGravityMultiplier: 1.25
+  _logStateTransitions: 1
 --- !u!114 &697816740
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -618,6 +646,23 @@ MonoBehaviour:
   _logGroundState: 0
   _logOnlyWhenChanged: 0
   _logInterval: 0.25
+--- !u!114 &697816741
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 697816731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0bcedff5d6bd4d6d8e986f59895ca7dc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Dynamic3DMovement.Runtime::StaminaManager
+  _maxStamina: 100
+  _startingStamina: 100
+  _recoveryPerSecond: 15
+  _dashStaminaCost: 25
+  _wallJumpStaminaCost: 20
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0

@@ -30,6 +30,23 @@ public sealed class PlayerCharacterControllerTests
     }
 
     [Test]
+    public void UpdateVelocity_UsesCameraForwardAsMovementReference()
+    {
+        var controller = CreateControllerWithInput(Vector2.up);
+        var movementReference = new GameObject("MovementReference");
+        movementReference.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+        controller.Context.SetMovementReference(movementReference.transform);
+        var velocity = Vector3.zero;
+
+        controller.UpdateVelocity(ref velocity, 0f);
+
+        Assert.That(velocity.x, Is.EqualTo(6f).Within(0.0001f));
+        Assert.That(velocity.z, Is.EqualTo(0f).Within(0.0001f));
+
+        Object.DestroyImmediate(movementReference);
+    }
+
+    [Test]
     public void UpdateVelocity_AppliesGravityWhileAirborne()
     {
         var controller = CreateControllerWithInput(Vector2.zero);
@@ -90,6 +107,64 @@ public sealed class PlayerCharacterControllerTests
 
         Assert.That(risingVelocity.y, Is.EqualTo(5.75f).Within(0.0001f));
         Assert.That(fallingVelocity.y, Is.EqualTo(-13.75f).Within(0.0001f));
+    }
+
+    [Test]
+    public void JumpStart_TransitionsToAirborneJumpState()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero, jumpPressed: true);
+        var velocity = Vector3.zero;
+
+        EnterGroundedState(controller);
+        controller.UpdateVelocity(ref velocity, 0f);
+
+        Assert.That(velocity.y, Is.EqualTo(controller.JumpSpeed).Within(0.0001f));
+        Assert.That(controller.CurrentLocomotionStateName, Is.EqualTo(nameof(AirborneState)));
+        Assert.That(controller.CurrentAirborneSubStateName, Is.EqualTo(nameof(JumpState)));
+    }
+
+    [Test]
+    public void AirborneState_UsesFallSubStateWhenAirborneWithoutUpwardVelocity()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero);
+
+        EnterAirborneState(controller);
+
+        Assert.That(controller.CurrentLocomotionStateName, Is.EqualTo(nameof(AirborneState)));
+        Assert.That(controller.CurrentAirborneSubStateName, Is.EqualTo(nameof(FallState)));
+    }
+
+    [Test]
+    public void AirborneState_TransitionsFromJumpToFallWhenVerticalVelocityTurnsDownward()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero, jumpPressed: true);
+        var velocity = Vector3.zero;
+
+        EnterGroundedState(controller);
+        controller.UpdateVelocity(ref velocity, 0f);
+        Assert.That(controller.CurrentAirborneSubStateName, Is.EqualTo(nameof(JumpState)));
+
+        controller.UpdateVelocity(ref velocity, 1f);
+        controller.AfterCharacterUpdate(0f);
+
+        Assert.That(velocity.y, Is.LessThan(0f));
+        Assert.That(controller.CurrentLocomotionStateName, Is.EqualTo(nameof(AirborneState)));
+        Assert.That(controller.CurrentAirborneSubStateName, Is.EqualTo(nameof(FallState)));
+    }
+
+    [Test]
+    public void AirborneState_ReturnsToGroundedStateAfterLanding()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero);
+
+        EnterAirborneState(controller);
+        Assert.That(controller.CurrentLocomotionStateName, Is.EqualTo(nameof(AirborneState)));
+
+        SetGrounded(controller, isGrounded: true);
+        controller.PostGroundingUpdate(0f);
+
+        Assert.That(controller.CurrentLocomotionStateName, Is.EqualTo(nameof(GroundedState)));
+        Assert.That(controller.CurrentGroundedSubStateName, Is.EqualTo(nameof(IdleState)));
     }
 
     [Test]
@@ -163,6 +238,10 @@ public sealed class PlayerCharacterControllerTests
 
     private void SetGrounded(PlayerCharacterController controller, bool isGrounded)
     {
+        controller.Motor.GroundingStatus.FoundAnyGround = isGrounded;
+        controller.Motor.GroundingStatus.IsStableOnGround = isGrounded;
+        controller.Motor.GroundingStatus.GroundNormal = Vector3.up;
+
         controller.GroundDetector.Refresh(new KinematicCharacterController.CharacterGroundingReport
         {
             FoundAnyGround = isGrounded,
@@ -174,6 +253,12 @@ public sealed class PlayerCharacterControllerTests
     private void EnterGroundedState(PlayerCharacterController controller)
     {
         SetGrounded(controller, isGrounded: true);
+        controller.PostGroundingUpdate(0f);
+    }
+
+    private void EnterAirborneState(PlayerCharacterController controller)
+    {
+        SetGrounded(controller, isGrounded: false);
         controller.PostGroundingUpdate(0f);
     }
 }

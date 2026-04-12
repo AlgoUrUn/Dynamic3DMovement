@@ -1,21 +1,11 @@
-public interface ISubState
+public abstract class AirborneSubState : ISubState
 {
-    void OnEnter(ISubState previousState);
-    void OnExit(ISubState nextState);
-    void BeforeUpdate(float deltaTime);
-    void Update(float deltaTime);
-    void AfterUpdate(float deltaTime);
-    ISubState GetTransition();
-}
-
-public abstract class SubState : ISubState
-{
-    protected SubState(GroundedState owner)
+    protected AirborneSubState(AirborneState owner)
     {
         Owner = owner;
     }
 
-    protected GroundedState Owner { get; }
+    protected AirborneState Owner { get; }
 
     public virtual void OnEnter(ISubState previousState)
     {
