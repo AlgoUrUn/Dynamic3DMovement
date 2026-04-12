@@ -93,6 +93,45 @@ public sealed class PlayerCharacterControllerTests
     }
 
     [Test]
+    public void GroundedState_UsesIdleSubStateWhenMoveInputIsMissing()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero);
+
+        EnterGroundedState(controller);
+
+        Assert.That(controller.CurrentLocomotionStateName, Is.EqualTo(nameof(GroundedState)));
+        Assert.That(controller.CurrentGroundedSubStateName, Is.EqualTo(nameof(IdleState)));
+    }
+
+    [Test]
+    public void GroundedState_UsesMoveSubStateWhenMoveInputExists()
+    {
+        var controller = CreateControllerWithInput(Vector2.right);
+
+        EnterGroundedState(controller);
+
+        Assert.That(controller.CurrentLocomotionStateName, Is.EqualTo(nameof(GroundedState)));
+        Assert.That(controller.CurrentGroundedSubStateName, Is.EqualTo(nameof(MoveState)));
+    }
+
+    [Test]
+    public void GroundedState_TransitionsBetweenIdleAndMoveBasedOnInput()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero);
+
+        EnterGroundedState(controller);
+        Assert.That(controller.CurrentGroundedSubStateName, Is.EqualTo(nameof(IdleState)));
+
+        controller.Context.SetFrameInput(new PlayerFrameInput(Vector2.up, Vector2.zero, false, false, false));
+        controller.AfterCharacterUpdate(0f);
+        Assert.That(controller.CurrentGroundedSubStateName, Is.EqualTo(nameof(MoveState)));
+
+        controller.Context.SetFrameInput(new PlayerFrameInput(Vector2.zero, Vector2.zero, false, false, false));
+        controller.AfterCharacterUpdate(0f);
+        Assert.That(controller.CurrentGroundedSubStateName, Is.EqualTo(nameof(IdleState)));
+    }
+
+    [Test]
     public void PostGroundingUpdate_RefreshesGroundDetectorFromMotor()
     {
         var controller = CreateControllerWithInput(Vector2.zero);
@@ -130,5 +169,11 @@ public sealed class PlayerCharacterControllerTests
             IsStableOnGround = isGrounded,
             GroundNormal = Vector3.up,
         });
+    }
+
+    private void EnterGroundedState(PlayerCharacterController controller)
+    {
+        SetGrounded(controller, isGrounded: true);
+        controller.PostGroundingUpdate(0f);
     }
 }

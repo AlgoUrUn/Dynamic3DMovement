@@ -20,12 +20,17 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public float Gravity => _gravity;
     public float UpwardGravityMultiplier => _upwardGravityMultiplier;
     public float FallGravityMultiplier => _fallGravityMultiplier;
+    public string CurrentLocomotionStateName => _locomotionStateMachine?.CurrentStateName;
+    public string CurrentGroundedSubStateName => _locomotionStateMachine?.CurrentGroundedSubStateName;
+
+    private LocomotionStateMachine _locomotionStateMachine;
 
     private void Awake()
     {
         // Cache once because the motor asks this controller for movement during its own update loop.
         ResolveReferences();
         RegisterWithMotor();
+        InitializeStateMachine();
     }
 
     /// <summary>
@@ -38,7 +43,7 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
 
     public void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
     {
-        // Rotation is intentionally unchanged until camera-facing rules are introduced.
+        _locomotionStateMachine?.UpdateRotation(ref currentRotation, deltaTime);
     }
 
     /// <summary>
@@ -46,36 +51,12 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     /// </summary>
     public void UpdateVelocity(ref Vector3 currentVelocity, float deltaTime)
     {
-        Vector3 moveDirection = GetMoveDirection();
-
-        currentVelocity.x = moveDirection.x * _moveSpeed;
-        currentVelocity.z = moveDirection.z * _moveSpeed;
-
-        if (CanJump())
-        {
-            Debug.Log("Jump!");
-            _context.ConsumeJumpRequest();
-            currentVelocity.y = _jumpSpeed;
-
-            if (_motor != null)
-            {
-                _motor.ForceUnground();
-            }
-        }
-        else if (IsStableOnGround() && currentVelocity.y < 0f)
-        {
-            currentVelocity.y = 0f;
-        }
-
-        if (!IsStableOnGround() || currentVelocity.y > 0f)
-        {
-            currentVelocity.y -= GetGravityScale(currentVelocity.y) * _gravity * deltaTime;
-        }
+        _locomotionStateMachine?.UpdateVelocity(ref currentVelocity, deltaTime);
     }
 
     public void BeforeCharacterUpdate(float deltaTime)
     {
-        // Reserved for state-machine hooks that must run before KCC grounding and movement.
+        _locomotionStateMachine?.BeforeCharacterUpdate(deltaTime);
     }
 
     public void PostGroundingUpdate(float deltaTime)
@@ -84,11 +65,13 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         {
             _groundDetector.RefreshFromMotor();
         }
+
+        _locomotionStateMachine?.PostGroundingUpdate(deltaTime);
     }
 
     public void AfterCharacterUpdate(float deltaTime)
     {
-        // Reserved for cleanup that must happen after KCC finishes resolving movement.
+        _locomotionStateMachine?.AfterCharacterUpdate(deltaTime);
     }
 
     public bool IsColliderValidForCollisions(Collider coll)
@@ -103,7 +86,11 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         Vector3 hitPoint,
         ref HitStabilityReport hitStabilityReport)
     {
-        // Ground hit behavior belongs to locomotion states once those are introduced.
+        _locomotionStateMachine?.OnGroundHit(
+            hitCollider,
+            hitNormal,
+            hitPoint,
+            ref hitStabilityReport);
     }
 
     public void OnMovementHit(
@@ -112,7 +99,11 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         Vector3 hitPoint,
         ref HitStabilityReport hitStabilityReport)
     {
-        // Movement-hit reactions are left to future wall and obstacle handling.
+        _locomotionStateMachine?.OnMovementHit(
+            hitCollider,
+            hitNormal,
+            hitPoint,
+            ref hitStabilityReport);
     }
 
     public void ProcessHitStabilityReport(
@@ -123,12 +114,71 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         Quaternion atCharacterRotation,
         ref HitStabilityReport hitStabilityReport)
     {
-        // KCC's default stability report is enough before slope and wall rules exist.
+        _locomotionStateMachine?.ProcessHitStabilityReport(
+            hitCollider,
+            hitNormal,
+            hitPoint,
+            atCharacterPosition,
+            atCharacterRotation,
+            ref hitStabilityReport);
     }
 
     public void OnDiscreteCollisionDetected(Collider hitCollider)
     {
-        // Discrete collision effects are omitted until gameplay reactions require them.
+        _locomotionStateMachine?.OnDiscreteCollisionDetected(hitCollider);
+    }
+
+    public void ApplyPlanarMovement(ref Vector3 currentVelocity)
+    {
+        Vector3 moveDirection = GetMoveDirection();
+        currentVelocity.x = moveDirection.x * _moveSpeed;
+        currentVelocity.z = moveDirection.z * _moveSpeed;
+    }
+
+    public bool TryConsumeJump(ref Vector3 currentVelocity)
+    {
+        if (!CanJump())
+        {
+            return false;
+        }
+
+        _context.ConsumeJumpRequest();
+        currentVelocity.y = _jumpSpeed;
+
+        if (_motor != null)
+        {
+            _motor.ForceUnground();
+        }
+
+        return true;
+    }
+
+    public void ClampVerticalVelocityToGround(ref Vector3 currentVelocity)
+    {
+        if (IsStableOnGround() && currentVelocity.y < 0f)
+        {
+            currentVelocity.y = 0f;
+        }
+    }
+
+    public void ApplyGravity(ref Vector3 currentVelocity, float deltaTime)
+    {
+        if (IsStableOnGround() && currentVelocity.y <= 0f)
+        {
+            return;
+        }
+
+        currentVelocity.y -= GetGravityScale(currentVelocity.y) * _gravity * deltaTime;
+    }
+
+    public bool IsStableOnGroundNow()
+    {
+        return IsStableOnGround();
+    }
+
+    public bool HasMoveInput()
+    {
+        return _context != null && _context.MoveInput.sqrMagnitude > 0.0001f;
     }
 
     private void ResolveReferences()
@@ -156,6 +206,12 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
             // Register explicitly so KCC routes its velocity and collision callbacks here.
             _motor.CharacterController = this;
         }
+    }
+
+    private void InitializeStateMachine()
+    {
+        _locomotionStateMachine = new LocomotionStateMachine(this);
+        _locomotionStateMachine.Initialize();
     }
 
     private Vector3 GetMoveDirection()
