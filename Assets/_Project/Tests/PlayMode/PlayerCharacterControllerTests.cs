@@ -1,5 +1,9 @@
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public sealed class PlayerCharacterControllerTests
 {
@@ -8,6 +12,10 @@ public sealed class PlayerCharacterControllerTests
     [TearDown]
     public void TearDown()
     {
+#if UNITY_EDITOR
+        Selection.activeObject = null;
+#endif
+
         if (_playerObject != null)
         {
             Object.DestroyImmediate(_playerObject);
@@ -221,14 +229,121 @@ public sealed class PlayerCharacterControllerTests
         Assert.That(controller.GroundDetector.LandedThisFrame, Is.True);
     }
 
+    [Test]
+    public void OnMovementHit_UpdatesWallEnvironmentStateAfterPostGroundingUpdate()
+    {
+        var controller = CreateControllerWithInput(Vector2.right);
+        var velocity = Vector3.down;
+        var wall = new GameObject("Wall");
+        wall.layer = LayerMask.NameToLayer("Default");
+        var wallCollider = wall.AddComponent<BoxCollider>();
+        var hitReport = default(KinematicCharacterController.HitStabilityReport);
+
+        EnterAirborneState(controller);
+        controller.BeforeCharacterUpdate(0f);
+        controller.UpdateVelocity(ref velocity, 0f);
+        controller.OnMovementHit(wallCollider, Vector3.left, Vector3.zero, ref hitReport);
+        controller.PostGroundingUpdate(0f);
+
+        Assert.That(controller.HasWallContactNow, Is.True);
+        Assert.That(controller.IsAttachedToWallNow, Is.True);
+        Assert.That(controller.CanWallSlideNow, Is.True);
+        Assert.That(controller.CanWallJumpNow, Is.True);
+        Assert.That(controller.CurrentWallNormal, Is.EqualTo(Vector3.left));
+
+        Object.DestroyImmediate(wall);
+    }
+
+    [Test]
+    public void ProcessHitStabilityReport_ForcesWallHitsToRemainUnstable()
+    {
+        var controller = CreateControllerWithInput(Vector2.zero);
+        var wall = new GameObject("Wall");
+        wall.layer = LayerMask.NameToLayer("Default");
+        var wallCollider = wall.AddComponent<BoxCollider>();
+        var hitReport = new KinematicCharacterController.HitStabilityReport
+        {
+            IsStable = true,
+            ValidStepDetected = true,
+        };
+
+        controller.ProcessHitStabilityReport(
+            wallCollider,
+            Vector3.left,
+            Vector3.zero,
+            Vector3.zero,
+            Quaternion.identity,
+            ref hitReport);
+
+        Assert.That(hitReport.IsStable, Is.False);
+        Assert.That(hitReport.ValidStepDetected, Is.False);
+
+        Object.DestroyImmediate(wall);
+    }
+
+    [Test]
+    public void AirborneState_EntersWallSlideStateWhenAirborneAndTouchingWall()
+    {
+        var controller = CreateControllerWithInput(Vector2.right);
+        var velocity = Vector3.down;
+        var wall = new GameObject("Wall");
+        wall.layer = LayerMask.NameToLayer("Default");
+        var wallCollider = wall.AddComponent<BoxCollider>();
+        var hitReport = default(KinematicCharacterController.HitStabilityReport);
+
+        EnterAirborneState(controller);
+        controller.BeforeCharacterUpdate(0f);
+        controller.UpdateVelocity(ref velocity, 0f);
+        controller.OnMovementHit(wallCollider, Vector3.left, Vector3.zero, ref hitReport);
+        controller.PostGroundingUpdate(0f);
+        controller.AfterCharacterUpdate(0f);
+
+        Assert.That(controller.CurrentLocomotionStateName, Is.EqualTo(nameof(AirborneState)));
+        Assert.That(controller.CurrentAirborneSubStateName, Is.EqualTo(nameof(WallSlideState)));
+
+        Object.DestroyImmediate(wall);
+    }
+
+    [Test]
+    public void WallSlideState_ClampsFallSpeedAndExitsWhenWallContactEnds()
+    {
+        var controller = CreateControllerWithInput(Vector2.right);
+        var velocity = Vector3.down * 10f;
+        var wall = new GameObject("Wall");
+        wall.layer = LayerMask.NameToLayer("Default");
+        var wallCollider = wall.AddComponent<BoxCollider>();
+        var hitReport = default(KinematicCharacterController.HitStabilityReport);
+
+        EnterAirborneState(controller);
+        controller.BeforeCharacterUpdate(0f);
+        controller.UpdateVelocity(ref velocity, 0f);
+        controller.OnMovementHit(wallCollider, Vector3.left, Vector3.zero, ref hitReport);
+        controller.PostGroundingUpdate(0f);
+        controller.AfterCharacterUpdate(0f);
+
+        velocity = Vector3.down * 10f;
+        controller.BeforeCharacterUpdate(0f);
+        controller.UpdateVelocity(ref velocity, 0.1f);
+        controller.PostGroundingUpdate(0f);
+        controller.AfterCharacterUpdate(0f);
+
+        Assert.That(controller.CurrentAirborneSubStateName, Is.EqualTo(nameof(FallState)));
+        Assert.That(velocity.y, Is.EqualTo(-controller.WallSlideMaxFallSpeed).Within(0.0001f));
+
+        Object.DestroyImmediate(wall);
+    }
+
     private PlayerCharacterController CreateControllerWithInput(Vector2 moveInput, bool jumpPressed = false)
     {
         _playerObject = new GameObject("Player");
         _playerObject.AddComponent<CapsuleCollider>();
         _playerObject.AddComponent<KinematicCharacterController.KinematicCharacterMotor>();
         _playerObject.AddComponent<GroundDetector>();
+        var wallEnvironmentHandler = _playerObject.AddComponent<WallEnvironmentHandler>();
         var context = _playerObject.AddComponent<PlayerContext>();
         var controller = _playerObject.AddComponent<PlayerCharacterController>();
+
+        SetPrivateField(wallEnvironmentHandler, "_wallLayerName", "Default");
 
         context.SetFrameInput(new PlayerFrameInput(moveInput, Vector2.zero, jumpPressed, false, false));
         controller.SetInputs(context);
@@ -260,5 +375,11 @@ public sealed class PlayerCharacterControllerTests
     {
         SetGrounded(controller, isGrounded: false);
         controller.PostGroundingUpdate(0f);
+    }
+
+    private static void SetPrivateField(object target, string fieldName, object value)
+    {
+        FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        field.SetValue(target, value);
     }
 }

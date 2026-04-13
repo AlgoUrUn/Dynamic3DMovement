@@ -5,6 +5,7 @@ public sealed class AirborneState : RootLocomotionState
     private readonly SubStateMachine<AirborneSubState> _subStateMachine;
     private readonly JumpState _jumpState;
     private readonly FallState _fallState;
+    private readonly WallSlideState _wallSlideState;
 
     private AirborneSubState _entryStateOverride;
 
@@ -16,10 +17,12 @@ public sealed class AirborneState : RootLocomotionState
             controller.LogStateTransition);
         _jumpState = new JumpState(this);
         _fallState = new FallState(this);
+        _wallSlideState = new WallSlideState(this);
     }
 
     public JumpState JumpState => _jumpState;
     public FallState FallState => _fallState;
+    public WallSlideState WallSlideState => _wallSlideState;
     public string CurrentSubStateName => _subStateMachine.CurrentState?.GetType().Name;
 
     public override void OnEnter(RootLocomotionState previousState)
@@ -37,6 +40,11 @@ public sealed class AirborneState : RootLocomotionState
         _subStateMachine.Update(deltaTime);
         Controller.ApplyPlanarMovement(ref currentVelocity);
         Controller.ApplyGravity(ref currentVelocity, deltaTime);
+
+        if (_subStateMachine.CurrentState == _wallSlideState)
+        {
+            Controller.ClampWallSlideFallSpeed(ref currentVelocity);
+        }
     }
 
     public override void AfterCharacterUpdate(float deltaTime)
@@ -64,6 +72,11 @@ public sealed class AirborneState : RootLocomotionState
         return Controller.LastKnownVerticalVelocity > 0f;
     }
 
+    public bool CanWallSlide()
+    {
+        return Controller.CanWallSlideNow;
+    }
+
     private AirborneSubState GetInitialSubState()
     {
         AirborneSubState initialState = _entryStateOverride;
@@ -72,6 +85,11 @@ public sealed class AirborneState : RootLocomotionState
         if (initialState != null)
         {
             return initialState;
+        }
+
+        if (CanWallSlide())
+        {
+            return _wallSlideState;
         }
 
         if (IsMovingUpward())

@@ -126,6 +126,39 @@ var prefab = Resources.Load<GameObject>("Prefabs/DynamicItem");
 
 **Prefer**: Addressables or direct references for most assets.
 
+## Unity CLI Testing
+- When Unity PlayMode or EditMode verification is needed, prefer running the Unity Editor in batch mode through PowerShell instead of assuming a `Unity` command is on `PATH`.
+- Preferred Unity Editor path for this workspace:
+  - `C:\Program Files\Unity\Hub\Editor\6000.3.7f1\Editor\Unity.exe`
+- Example PlayMode test command:
+
+```powershell
+& 'C:\Program Files\Unity\Hub\Editor\6000.3.7f1\Editor\Unity.exe' `
+  -batchmode `
+  -quit `
+  -projectPath 'C:\Users\yls11\Uni_Virtual_Projects\Dynamic 3D Movement' `
+  -runTests `
+  -testPlatform PlayMode `
+  -logFile '-' `
+  -testResults 'C:\Users\yls11\Uni_Virtual_Projects\Dynamic 3D Movement\TestResults_PlayMode.xml'
+```
+
+- Example EditMode test command:
+
+```powershell
+& 'C:\Program Files\Unity\Hub\Editor\6000.3.7f1\Editor\Unity.exe' `
+  -batchmode `
+  -quit `
+  -projectPath 'C:\Users\yls11\Uni_Virtual_Projects\Dynamic 3D Movement' `
+  -runTests `
+  -testPlatform EditMode `
+  -logFile '-' `
+  -testResults 'C:\Users\yls11\Uni_Virtual_Projects\Dynamic 3D Movement\TestResults_EditMode.xml'
+```
+
+- When a task changes movement, collision, prefab wiring, scenes, or runtime integration, prefer running the smallest relevant Unity test scope before closing the task.
+- If tests cannot be run, state that clearly and include the reason, such as missing editor access, license prompts, or sandbox restrictions.
+
 ## Best Practices
 - ✅ Use consistent naming across entire project
 - ✅ Group shared raw assets by type and gameplay-facing assets by feature/system
@@ -135,3 +168,4 @@ var prefab = Resources.Load<GameObject>("Prefabs/DynamicItem");
 - ❌ **NEVER** use spaces in asset names
 - ❌ **NEVER** use special characters outside the project's approved separators
 - ❌ **NEVER** scatter related assets across folders
+    

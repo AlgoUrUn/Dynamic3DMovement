@@ -6,25 +6,36 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     [SerializeField] private KinematicCharacterMotor _motor;
     [SerializeField] private PlayerContext _context;
     [SerializeField] private GroundDetector _groundDetector;
+    [SerializeField] private WallEnvironmentHandler _wallEnvironmentHandler;
     [SerializeField] private float _moveSpeed = 6f;
     [SerializeField] private float _jumpSpeed = 8f;
     [SerializeField] private float _gravity = 30f;
     [SerializeField] private float _upwardGravityMultiplier = 0.75f;
     [SerializeField] private float _fallGravityMultiplier = 1.25f;
+    [SerializeField] private float _wallSlideMaxFallSpeed = 3f;
+    [SerializeField] private bool _logWallStateDebug;
+    [SerializeField] private bool _logMovementHits;
     [SerializeField] private bool _logStateTransitions;
 
     public KinematicCharacterMotor Motor => _motor;
     public PlayerContext Context => _context;
     public GroundDetector GroundDetector => _groundDetector;
+    public WallEnvironmentHandler WallEnvironmentHandler => _wallEnvironmentHandler;
     public float MoveSpeed => _moveSpeed;
     public float JumpSpeed => _jumpSpeed;
     public float Gravity => _gravity;
     public float UpwardGravityMultiplier => _upwardGravityMultiplier;
     public float FallGravityMultiplier => _fallGravityMultiplier;
+    public float WallSlideMaxFallSpeed => _wallSlideMaxFallSpeed;
     public string CurrentLocomotionStateName => _locomotionStateMachine?.CurrentStateName;
     public string CurrentGroundedSubStateName => _locomotionStateMachine?.CurrentGroundedSubStateName;
     public string CurrentAirborneSubStateName => _locomotionStateMachine?.CurrentAirborneSubStateName;
     public float LastKnownVerticalVelocity { get; private set; }
+    public bool HasWallContactNow => _wallEnvironmentHandler != null && _wallEnvironmentHandler.HasWallContact;
+    public bool IsAttachedToWallNow => _wallEnvironmentHandler != null && _wallEnvironmentHandler.IsAttachedToWall;
+    public Vector3 CurrentWallNormal => _wallEnvironmentHandler != null ? _wallEnvironmentHandler.WallNormal : Vector3.zero;
+    public bool CanWallSlideNow => _wallEnvironmentHandler != null && _wallEnvironmentHandler.CanWallSlide;
+    public bool CanWallJumpNow => _wallEnvironmentHandler != null && _wallEnvironmentHandler.CanWallJump;
 
     private LocomotionStateMachine _locomotionStateMachine;
 
@@ -70,11 +81,13 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public void UpdateVelocity(ref Vector3 currentVelocity, float deltaTime)
     {
         _locomotionStateMachine?.UpdateVelocity(ref currentVelocity, deltaTime);
+        _wallEnvironmentHandler?.SetKinematicContext(GetMoveDirection(), currentVelocity, IsStableOnGround());
         LastKnownVerticalVelocity = currentVelocity.y;
     }
 
     public void BeforeCharacterUpdate(float deltaTime)
     {
+        _wallEnvironmentHandler?.BeginFrame();
         _locomotionStateMachine?.BeforeCharacterUpdate(deltaTime);
     }
 
@@ -85,12 +98,15 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
             _groundDetector.RefreshFromMotor();
         }
 
+        LogWallDebugState("PostGroundingUpdate");
         _locomotionStateMachine?.PostGroundingUpdate(deltaTime);
     }
 
     public void AfterCharacterUpdate(float deltaTime)
     {
+        _wallEnvironmentHandler?.FinalizeFrame(IsStableOnGroundNow());
         _locomotionStateMachine?.AfterCharacterUpdate(deltaTime);
+        LogWallDebugState("AfterCharacterUpdate");
     }
 
     public bool IsColliderValidForCollisions(Collider coll)
@@ -105,6 +121,7 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         Vector3 hitPoint,
         ref HitStabilityReport hitStabilityReport)
     {
+        _wallEnvironmentHandler?.RegisterHit(hitCollider, hitNormal, hitPoint);
         _locomotionStateMachine?.OnGroundHit(
             hitCollider,
             hitNormal,
@@ -118,6 +135,14 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         Vector3 hitPoint,
         ref HitStabilityReport hitStabilityReport)
     {
+        if (_logMovementHits)
+        {
+            Debug.Log(
+                $"[MovementHit] collider={hitCollider?.name ?? "None"}, layer={GetLayerName(hitCollider)}, normal={hitNormal}, point={hitPoint}, stable={hitStabilityReport.IsStable}",
+                this);
+        }
+
+        _wallEnvironmentHandler?.RegisterHit(hitCollider, hitNormal, hitPoint);
         _locomotionStateMachine?.OnMovementHit(
             hitCollider,
             hitNormal,
@@ -133,6 +158,15 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         Quaternion atCharacterRotation,
         ref HitStabilityReport hitStabilityReport)
     {
+        _wallEnvironmentHandler?.RegisterHit(hitCollider, hitNormal, hitPoint);
+
+        if (_wallEnvironmentHandler != null &&
+            _wallEnvironmentHandler.IsWallHit(hitCollider, hitNormal))
+        {
+            hitStabilityReport.IsStable = false;
+            hitStabilityReport.ValidStepDetected = false;
+        }
+
         _locomotionStateMachine?.ProcessHitStabilityReport(
             hitCollider,
             hitNormal,
@@ -190,6 +224,14 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         currentVelocity.y -= GetGravityScale(currentVelocity.y) * _gravity * deltaTime;
     }
 
+    public void ClampWallSlideFallSpeed(ref Vector3 currentVelocity)
+    {
+        if (currentVelocity.y < -_wallSlideMaxFallSpeed)
+        {
+            currentVelocity.y = -_wallSlideMaxFallSpeed;
+        }
+    }
+
     public bool IsStableOnGroundNow()
     {
         return IsStableOnGround();
@@ -227,6 +269,11 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         if (_groundDetector == null)
         {
             _groundDetector = GetComponent<GroundDetector>();
+        }
+
+        if (_wallEnvironmentHandler == null)
+        {
+            _wallEnvironmentHandler = GetComponent<WallEnvironmentHandler>();
         }
     }
 
@@ -283,5 +330,27 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         }
 
         return 1f;
+    }
+
+    private void LogWallDebugState(string phase)
+    {
+        if (!_logWallStateDebug || _wallEnvironmentHandler == null)
+        {
+            return;
+        }
+
+        Debug.Log(
+            $"[WallDebug] Phase={phase}, Locomotion={CurrentLocomotionStateName}, AirborneSub={CurrentAirborneSubStateName}, StableGround={IsStableOnGroundNow()}, HasWall={HasWallContactNow}, Attached={IsAttachedToWallNow}, CanSlide={CanWallSlideNow}, CanJump={CanWallJumpNow}, WallNormal={CurrentWallNormal}, VerticalVelocity={LastKnownVerticalVelocity}",
+            this);
+    }
+
+    private static string GetLayerName(Collider collider)
+    {
+        if (collider == null)
+        {
+            return "None";
+        }
+
+        return LayerMask.LayerToName(collider.gameObject.layer);
     }
 }

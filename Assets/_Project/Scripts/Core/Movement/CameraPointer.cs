@@ -8,15 +8,19 @@ public sealed class CameraPointer : MonoBehaviour
     [SerializeField] private KinematicCharacterMotor _yawMotor;
     [SerializeField] private Transform _yawTarget;
     [SerializeField] private Transform _pitchTarget;
+    [SerializeField] private Transform _headTarget;
     [SerializeField] private float _horizontalSensitivity = 0.12f;
     [SerializeField] private float _verticalSensitivity = 0.12f;
     [SerializeField] private float _minPitch = -80f;
     [SerializeField] private float _maxPitch = 80f;
+    [SerializeField] private float _headYawLimit = 30f;
+    [SerializeField] private float _headPitchLimit = 30f;
     [SerializeField] private bool _invertY;
     [SerializeField] private bool _lockCursor = true;
 
     private float _yaw;
     private float _pitch;
+    private Quaternion _headInitialLocalRotation;
 
     private void Awake()
     {
@@ -103,6 +107,11 @@ public sealed class CameraPointer : MonoBehaviour
         {
             _pitchTarget = transform;
         }
+
+        if (_headTarget != null)
+        {
+            _headInitialLocalRotation = _headTarget.localRotation;
+        }
     }
 
     private void RegisterMovementReference()
@@ -133,11 +142,28 @@ public sealed class CameraPointer : MonoBehaviour
         if (_yawTarget == _pitchTarget)
         {
             SetYawRotation(yawRotation * pitchRotation);
+            ApplyHeadRotation();
             return;
         }
 
         SetYawRotation(yawRotation);
         _pitchTarget.localRotation = pitchRotation;
+        ApplyHeadRotation();
+    }
+
+    private void ApplyHeadRotation()
+    {
+        if (_headTarget == null)
+        {
+            return;
+        }
+
+        float bodyYaw = _yawTarget != null ? NormalizeAngle(_yawTarget.eulerAngles.y) : _yaw;
+        float relativeYaw = Mathf.DeltaAngle(bodyYaw, _yaw);
+        float clampedHeadYaw = Mathf.Clamp(relativeYaw, -_headYawLimit, _headYawLimit);
+        float clampedHeadPitch = Mathf.Clamp(_pitch, -_headPitchLimit, _headPitchLimit);
+        Quaternion headLookOffset = Quaternion.Euler(clampedHeadPitch, clampedHeadYaw, 0f);
+        _headTarget.localRotation = _headInitialLocalRotation * headLookOffset;
     }
 
     private void SetYawRotation(Quaternion rotation)

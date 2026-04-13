@@ -7,6 +7,11 @@ public sealed class JumpState : AirborneSubState
 
     public override ISubState GetTransition()
     {
+        if (Owner.CanWallSlide())
+        {
+            return Owner.WallSlideState;
+        }
+
         if (!Owner.IsMovingUpward())
         {
             return Owner.FallState;
