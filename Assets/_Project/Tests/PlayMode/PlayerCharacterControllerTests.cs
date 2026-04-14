@@ -71,7 +71,7 @@ public sealed class PlayerCharacterControllerTests
         var controller = CreateControllerWithInput(Vector2.zero, jumpPressed: true);
         var velocity = Vector3.zero;
 
-        SetGrounded(controller, isGrounded: true);
+        EnterGroundedState(controller);
         controller.UpdateVelocity(ref velocity, 0f);
 
         Assert.That(velocity.y, Is.EqualTo(controller.JumpSpeed).Within(0.0001f));
@@ -84,7 +84,7 @@ public sealed class PlayerCharacterControllerTests
         var velocity = Vector3.zero;
 
         controller.Context.ClearFrameInput();
-        SetGrounded(controller, isGrounded: true);
+        EnterGroundedState(controller);
         controller.UpdateVelocity(ref velocity, 0f);
 
         Assert.That(velocity.y, Is.EqualTo(controller.JumpSpeed).Within(0.0001f));
@@ -244,6 +244,7 @@ public sealed class PlayerCharacterControllerTests
         controller.UpdateVelocity(ref velocity, 0f);
         controller.OnMovementHit(wallCollider, Vector3.left, Vector3.zero, ref hitReport);
         controller.PostGroundingUpdate(0f);
+        controller.AfterCharacterUpdate(0f);
 
         Assert.That(controller.HasWallContactNow, Is.True);
         Assert.That(controller.IsAttachedToWallNow, Is.True);
@@ -333,7 +334,63 @@ public sealed class PlayerCharacterControllerTests
         Object.DestroyImmediate(wall);
     }
 
-    private PlayerCharacterController CreateControllerWithInput(Vector2 moveInput, bool jumpPressed = false)
+    [Test]
+    public void DashRequest_TransitionsToDashStateAndConsumesDashStamina()
+    {
+        var controller = CreateControllerWithInput(Vector2.right, dashPressed: true);
+        var velocity = Vector3.zero;
+
+        SetGrounded(controller, isGrounded: true);
+        controller.UpdateVelocity(ref velocity, 0f);
+
+        Assert.That(controller.CurrentActionStateName, Is.EqualTo(nameof(DashState)));
+        Assert.That(velocity.x, Is.EqualTo(controller.DashSpeed).Within(0.0001f));
+        Assert.That(controller.StaminaManager.CurrentStamina, Is.EqualTo(75f).Within(0.0001f));
+    }
+
+    [Test]
+    public void WallJumpRequest_TransitionsToWallJumpStateAndConsumesWallJumpStamina()
+    {
+        var controller = CreateControllerWithInput(Vector2.right, jumpPressed: true);
+        var velocity = Vector3.down;
+        var wall = new GameObject("Wall");
+        wall.layer = LayerMask.NameToLayer("Default");
+        var wallCollider = wall.AddComponent<BoxCollider>();
+        var hitReport = default(KinematicCharacterController.HitStabilityReport);
+
+        EnterAirborneState(controller);
+        controller.BeforeCharacterUpdate(0f);
+        controller.UpdateVelocity(ref velocity, 0f);
+        controller.OnMovementHit(wallCollider, Vector3.left, Vector3.zero, ref hitReport);
+        controller.PostGroundingUpdate(0f);
+        controller.AfterCharacterUpdate(0f);
+
+        controller.Context.SetFrameInput(new PlayerFrameInput(Vector2.right, Vector2.zero, true, false, false));
+        controller.UpdateVelocity(ref velocity, 0f);
+
+        Assert.That(controller.CurrentActionStateName, Is.EqualTo(nameof(WallJumpState)));
+        Assert.That(velocity.x, Is.EqualTo(-controller.WallJumpHorizontalSpeed).Within(0.0001f));
+        Assert.That(velocity.y, Is.EqualTo(controller.WallJumpVerticalSpeed).Within(0.0001f));
+        Assert.That(controller.StaminaManager.CurrentStamina, Is.EqualTo(80f).Within(0.0001f));
+
+        Object.DestroyImmediate(wall);
+    }
+
+    [Test]
+    public void DashRequest_DoesNotStartWhenStaminaIsInsufficient()
+    {
+        var controller = CreateControllerWithInput(Vector2.right, dashPressed: true);
+        var velocity = Vector3.zero;
+
+        controller.StaminaManager.SetCurrentStamina(10f);
+        SetGrounded(controller, isGrounded: true);
+        controller.UpdateVelocity(ref velocity, 0f);
+
+        Assert.That(controller.CurrentActionStateName, Is.EqualTo(nameof(NoneActionState)));
+        Assert.That(controller.StaminaManager.CurrentStamina, Is.EqualTo(10f).Within(0.0001f));
+    }
+
+    private PlayerCharacterController CreateControllerWithInput(Vector2 moveInput, bool jumpPressed = false, bool dashPressed = false)
     {
         _playerObject = new GameObject("Player");
         _playerObject.AddComponent<CapsuleCollider>();
@@ -341,11 +398,13 @@ public sealed class PlayerCharacterControllerTests
         _playerObject.AddComponent<GroundDetector>();
         var wallEnvironmentHandler = _playerObject.AddComponent<WallEnvironmentHandler>();
         var context = _playerObject.AddComponent<PlayerContext>();
+        var staminaManager = _playerObject.AddComponent<StaminaManager>();
         var controller = _playerObject.AddComponent<PlayerCharacterController>();
 
         SetPrivateField(wallEnvironmentHandler, "_wallLayerName", "Default");
 
-        context.SetFrameInput(new PlayerFrameInput(moveInput, Vector2.zero, jumpPressed, false, false));
+        staminaManager.SetCurrentStamina(staminaManager.MaxStamina);
+        context.SetFrameInput(new PlayerFrameInput(moveInput, Vector2.zero, jumpPressed, dashPressed, false));
         controller.SetInputs(context);
 
         return controller;

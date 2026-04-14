@@ -7,8 +7,14 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     [SerializeField] private PlayerContext _context;
     [SerializeField] private GroundDetector _groundDetector;
     [SerializeField] private WallEnvironmentHandler _wallEnvironmentHandler;
+    [SerializeField] private StaminaManager _staminaManager;
     [SerializeField] private float _moveSpeed = 6f;
     [SerializeField] private float _jumpSpeed = 8f;
+    [SerializeField] private float _dashSpeed = 14f;
+    [SerializeField] private float _dashDuration = 0.18f;
+    [SerializeField] private float _wallJumpHorizontalSpeed = 8f;
+    [SerializeField] private float _wallJumpVerticalSpeed = 8f;
+    [SerializeField] private float _wallJumpDuration = 0.16f;
     [SerializeField] private float _gravity = 30f;
     [SerializeField] private float _upwardGravityMultiplier = 0.75f;
     [SerializeField] private float _fallGravityMultiplier = 1.25f;
@@ -21,8 +27,14 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public PlayerContext Context => _context;
     public GroundDetector GroundDetector => _groundDetector;
     public WallEnvironmentHandler WallEnvironmentHandler => _wallEnvironmentHandler;
+    public StaminaManager StaminaManager => _staminaManager;
     public float MoveSpeed => _moveSpeed;
     public float JumpSpeed => _jumpSpeed;
+    public float DashSpeed => _dashSpeed;
+    public float DashDuration => _dashDuration;
+    public float WallJumpHorizontalSpeed => _wallJumpHorizontalSpeed;
+    public float WallJumpVerticalSpeed => _wallJumpVerticalSpeed;
+    public float WallJumpDuration => _wallJumpDuration;
     public float Gravity => _gravity;
     public float UpwardGravityMultiplier => _upwardGravityMultiplier;
     public float FallGravityMultiplier => _fallGravityMultiplier;
@@ -30,6 +42,7 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public string CurrentLocomotionStateName => _locomotionStateMachine?.CurrentStateName;
     public string CurrentGroundedSubStateName => _locomotionStateMachine?.CurrentGroundedSubStateName;
     public string CurrentAirborneSubStateName => _locomotionStateMachine?.CurrentAirborneSubStateName;
+    public string CurrentActionStateName => _actionStateMachine?.CurrentStateName;
     public float LastKnownVerticalVelocity { get; private set; }
     public bool HasWallContactNow => _wallEnvironmentHandler != null && _wallEnvironmentHandler.HasWallContact;
     public bool IsAttachedToWallNow => _wallEnvironmentHandler != null && _wallEnvironmentHandler.IsAttachedToWall;
@@ -38,6 +51,7 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public bool CanWallJumpNow => _wallEnvironmentHandler != null && _wallEnvironmentHandler.CanWallJump;
 
     private LocomotionStateMachine _locomotionStateMachine;
+    private ActionStateMachine _actionStateMachine;
 
     private void Awake()
     {
@@ -81,6 +95,7 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public void UpdateVelocity(ref Vector3 currentVelocity, float deltaTime)
     {
         _locomotionStateMachine?.UpdateVelocity(ref currentVelocity, deltaTime);
+        _actionStateMachine?.UpdateVelocity(ref currentVelocity, deltaTime);
         _wallEnvironmentHandler?.SetKinematicContext(GetMoveDirection(), currentVelocity, IsStableOnGround());
         LastKnownVerticalVelocity = currentVelocity.y;
     }
@@ -106,6 +121,7 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     {
         _wallEnvironmentHandler?.FinalizeFrame(IsStableOnGroundNow());
         _locomotionStateMachine?.AfterCharacterUpdate(deltaTime);
+        _actionStateMachine?.AfterCharacterUpdate(deltaTime);
         LogWallDebugState("AfterCharacterUpdate");
     }
 
@@ -206,6 +222,63 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         return true;
     }
 
+    public bool TryStartDash()
+    {
+        if (_context == null || !_context.ConsumeDashRequest())
+        {
+            return false;
+        }
+
+        return _staminaManager == null || _staminaManager.ConsumeDashStamina();
+    }
+
+    public bool TryStartWallJump()
+    {
+        if (_context == null || !_context.JumpRequested || !CanWallJumpNow)
+        {
+            return false;
+        }
+
+        bool hasStamina = _staminaManager == null || _staminaManager.ConsumeWallJumpStamina();
+        if (!hasStamina)
+        {
+            _context.ConsumeJumpRequest();
+            return false;
+        }
+
+        _context.ConsumeJumpRequest();
+
+        if (_motor != null)
+        {
+            _motor.ForceUnground();
+        }
+
+        _locomotionStateMachine?.AirborneState.PrepareForJump();
+        _locomotionStateMachine?.RequestTransition(_locomotionStateMachine.AirborneState);
+        return true;
+    }
+
+    public Vector3 BuildDashVelocity()
+    {
+        Vector3 dashDirection = GetDashDirection();
+        return dashDirection * _dashSpeed;
+    }
+
+    public Vector3 BuildWallJumpVelocity()
+    {
+        Vector3 awayFromWall = CurrentWallNormal.sqrMagnitude > 0.0001f
+            ? Vector3.ProjectOnPlane(CurrentWallNormal.normalized, Vector3.up)
+            : transform.forward;
+
+        if (awayFromWall.sqrMagnitude <= 0.0001f)
+        {
+            awayFromWall = transform.forward;
+        }
+
+        awayFromWall.Normalize();
+        return (awayFromWall * _wallJumpHorizontalSpeed) + (Vector3.up * _wallJumpVerticalSpeed);
+    }
+
     public void ClampVerticalVelocityToGround(ref Vector3 currentVelocity)
     {
         if (IsStableOnGround() && currentVelocity.y < 0f)
@@ -275,6 +348,11 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         {
             _wallEnvironmentHandler = GetComponent<WallEnvironmentHandler>();
         }
+
+        if (_staminaManager == null)
+        {
+            _staminaManager = GetComponent<StaminaManager>();
+        }
     }
 
     private void RegisterWithMotor()
@@ -290,6 +368,8 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     {
         _locomotionStateMachine = new LocomotionStateMachine(this);
         _locomotionStateMachine.Initialize();
+        _actionStateMachine = new ActionStateMachine(this);
+        _actionStateMachine.Initialize();
     }
 
     private Vector3 GetMoveDirection()
@@ -300,6 +380,23 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         }
 
         return Vector3.ClampMagnitude(_context.MoveDirection, 1f);
+    }
+
+    private Vector3 GetDashDirection()
+    {
+        Vector3 dashDirection = GetMoveDirection();
+        if (dashDirection.sqrMagnitude > 0.0001f)
+        {
+            return dashDirection.normalized;
+        }
+
+        Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+        if (forward.sqrMagnitude <= 0.0001f)
+        {
+            return Vector3.forward;
+        }
+
+        return forward.normalized;
     }
 
     private bool CanJump()

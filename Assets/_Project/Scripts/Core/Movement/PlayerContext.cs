@@ -4,10 +4,13 @@ public sealed class PlayerContext : MonoBehaviour
 {
     [SerializeField] private PlayerFrameInput _frameInput;
     [SerializeField] private float _jumpBufferDuration = 0.2f;
+    [SerializeField] private float _dashBufferDuration = 0.2f;
     [SerializeField] private Transform _movementReference;
 
     private bool _jumpRequested;
     private float _jumpRequestExpiresAt = -1f;
+    private bool _dashRequested;
+    private float _dashRequestExpiresAt = -1f;
 
     public PlayerFrameInput FrameInput => _frameInput;
     public Vector2 MoveInput => _frameInput.MoveInput;
@@ -16,10 +19,11 @@ public sealed class PlayerContext : MonoBehaviour
     public bool JumpPressed => _frameInput.JumpPressed;
     public bool DashPressed => _frameInput.DashPressed;
     public bool JumpRequested => _jumpRequested && Time.time <= _jumpRequestExpiresAt;
-    public bool DashRequested => _frameInput.DashPressed;
+    public bool DashRequested => _dashRequested && Time.time <= _dashRequestExpiresAt;
     public Vector3 DashDirection => MoveDirection;
     public bool RunHeld => _frameInput.RunHeld;
     public float JumpBufferDuration => _jumpBufferDuration;
+    public float DashBufferDuration => _dashBufferDuration;
 
     /// <summary>
     /// Stores input outside the reader so movement systems do not depend on input device details.
@@ -32,6 +36,11 @@ public sealed class PlayerContext : MonoBehaviour
         {
             QueueJumpRequest();
         }
+
+        if (frameInput.DashPressed)
+        {
+            QueueDashRequest();
+        }
     }
 
     public bool ConsumeJumpRequest()
@@ -43,6 +52,18 @@ public sealed class PlayerContext : MonoBehaviour
         }
 
         ClearJumpRequest();
+        return true;
+    }
+
+    public bool ConsumeDashRequest()
+    {
+        if (!DashRequested)
+        {
+            ClearDashRequest();
+            return false;
+        }
+
+        ClearDashRequest();
         return true;
     }
 
@@ -69,6 +90,18 @@ public sealed class PlayerContext : MonoBehaviour
     {
         _jumpRequested = false;
         _jumpRequestExpiresAt = -1f;
+    }
+
+    private void QueueDashRequest()
+    {
+        _dashRequested = true;
+        _dashRequestExpiresAt = Time.time + _dashBufferDuration;
+    }
+
+    private void ClearDashRequest()
+    {
+        _dashRequested = false;
+        _dashRequestExpiresAt = -1f;
     }
 
     private Vector3 GetPlanarDirection(Vector2 moveInput)

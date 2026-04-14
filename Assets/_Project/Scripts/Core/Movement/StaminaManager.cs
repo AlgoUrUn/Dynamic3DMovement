@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.UI;
+using System;
 
 public sealed class StaminaManager : MonoBehaviour
 {
@@ -7,6 +9,9 @@ public sealed class StaminaManager : MonoBehaviour
     [SerializeField] private float _recoveryPerSecond = 15f;
     [SerializeField] private float _dashStaminaCost = 25f;
     [SerializeField] private float _wallJumpStaminaCost = 20f;
+    [SerializeField] private Slider _staminaBar;
+
+    public event Action<float, float> StaminaChanged;
 
     public float MaxStamina => _maxStamina;
     public float CurrentStamina { get; private set; }
@@ -17,7 +22,12 @@ public sealed class StaminaManager : MonoBehaviour
 
     private void Awake()
     {
-        CurrentStamina = Mathf.Clamp(_startingStamina, 0f, _maxStamina);
+        SetStaminaInternal(_startingStamina, true);
+    }
+
+    private void Update()
+    {
+        Tick(Time.deltaTime);
     }
 
     public void Tick(float deltaTime)
@@ -37,7 +47,7 @@ public sealed class StaminaManager : MonoBehaviour
             return;
         }
 
-        CurrentStamina = Mathf.Min(CurrentStamina + amount, _maxStamina);
+        SetStaminaInternal(CurrentStamina + amount);
     }
 
     public bool Consume(float amount)
@@ -52,7 +62,7 @@ public sealed class StaminaManager : MonoBehaviour
             return false;
         }
 
-        CurrentStamina -= amount;
+        SetStaminaInternal(CurrentStamina - amount);
         return true;
     }
 
@@ -68,6 +78,29 @@ public sealed class StaminaManager : MonoBehaviour
 
     public void SetCurrentStamina(float stamina)
     {
-        CurrentStamina = Mathf.Clamp(stamina, 0f, _maxStamina);
+        SetStaminaInternal(stamina);
+    }
+
+    public void UpdateStaminaBar()
+    {
+        if (_staminaBar != null)
+        {
+            _staminaBar.minValue = 0f;
+            _staminaBar.maxValue = 1f;
+            _staminaBar.value = NormalizedStamina;
+        }
+    }
+
+    private void SetStaminaInternal(float stamina, bool notifyIfUnchanged = false)
+    {
+        float clampedStamina = Mathf.Clamp(stamina, 0f, _maxStamina);
+        if (!notifyIfUnchanged && Mathf.Approximately(CurrentStamina, clampedStamina))
+        {
+            return;
+        }
+
+        CurrentStamina = clampedStamina;
+        UpdateStaminaBar();
+        StaminaChanged?.Invoke(CurrentStamina, NormalizedStamina);
     }
 }
