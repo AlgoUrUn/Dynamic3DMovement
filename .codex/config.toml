@@ -1,0 +1,27 @@
+[agents]
+max_threads = 5
+max_depth = 1
+
+[agents.default]
+description = "General-purpose helper."
+config_file = "agents/default.toml"
+
+[agents.planner]
+description = "Task split, design, and priority."
+config_file = "agents/planner.toml"
+
+[agents.reviewer]
+description = "Find security, correctness, and test risks in code."
+config_file = "agents/reviewer.toml"
+
+[agents.explorer]
+description = "Fast codebase explorer for read-heavy tasks."
+config_file = "agents/explorer.toml"
+
+[agents.debugger]
+description = "Responsible for bug reproduction, cause tracking, log/state transition analysis."
+config_file = "agents/debugger.toml"
+
+[agents.implementer]
+description = "Responsible for correcting actual code."
+config_file = "agents/implementer.toml"

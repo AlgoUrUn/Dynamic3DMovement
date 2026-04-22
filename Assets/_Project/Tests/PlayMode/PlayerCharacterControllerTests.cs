@@ -390,6 +390,108 @@ public sealed class PlayerCharacterControllerTests
         Assert.That(controller.StaminaManager.CurrentStamina, Is.EqualTo(10f).Within(0.0001f));
     }
 
+    [Test]
+    public void UpdateVelocity_UsesAccelerationCurveWhileStartingGroundedMovement()
+    {
+        var controller = CreateControllerWithInput(Vector2.right);
+        ConfigureMoveAcceleration(controller, 1f, AnimationCurve.Linear(0f, 0f, 1f, 1f));
+        var velocity = Vector3.zero;
+
+        EnterGroundedState(controller);
+        controller.UpdateVelocity(ref velocity, 0.25f);
+
+        Assert.That(velocity.x, Is.EqualTo(1.5f).Within(0.0001f));
+        Assert.That(velocity.z, Is.EqualTo(0f).Within(0.0001f));
+    }
+
+    [Test]
+    public void UpdateVelocity_ReachesFullSpeedAfterAccelerationDuration()
+    {
+        var controller = CreateControllerWithInput(Vector2.right);
+        ConfigureMoveAcceleration(controller, 0.5f, AnimationCurve.Linear(0f, 0f, 1f, 1f));
+        var velocity = Vector3.zero;
+
+        EnterGroundedState(controller);
+        controller.UpdateVelocity(ref velocity, 0.25f);
+        controller.UpdateVelocity(ref velocity, 0.25f);
+
+        Assert.That(velocity.x, Is.EqualTo(controller.MoveSpeed).Within(0.0001f));
+        Assert.That(velocity.z, Is.EqualTo(0f).Within(0.0001f));
+    }
+
+    [Test]
+    public void UpdateVelocity_RestartsAccelerationCurveAfterMovementStops()
+    {
+        var controller = CreateControllerWithInput(Vector2.right);
+        ConfigureMoveCurves(
+            controller,
+            accelerationDuration: 1f,
+            accelerationCurve: AnimationCurve.Linear(0f, 0f, 1f, 1f),
+            decelerationDuration: 0.2f,
+            decelerationCurve: AnimationCurve.Linear(0f, 1f, 1f, 0f));
+        var velocity = Vector3.zero;
+
+        EnterGroundedState(controller);
+        controller.UpdateVelocity(ref velocity, 0.5f);
+        Assert.That(velocity.x, Is.EqualTo(3f).Within(0.0001f));
+
+        controller.Context.SetFrameInput(new PlayerFrameInput(Vector2.zero, Vector2.zero, false, false, false));
+        controller.UpdateVelocity(ref velocity, 0.2f);
+        Assert.That(velocity.x, Is.EqualTo(0f).Within(0.0001f));
+
+        controller.Context.SetFrameInput(new PlayerFrameInput(Vector2.right, Vector2.zero, false, false, false));
+        controller.UpdateVelocity(ref velocity, 0.25f);
+
+        Assert.That(velocity.x, Is.EqualTo(1.5f).Within(0.0001f));
+        Assert.That(velocity.z, Is.EqualTo(0f).Within(0.0001f));
+    }
+
+    [Test]
+    public void UpdateVelocity_UsesDecelerationCurveWhileStoppingGroundedMovement()
+    {
+        var controller = CreateControllerWithInput(Vector2.right);
+        ConfigureMoveCurves(
+            controller,
+            accelerationDuration: 0f,
+            accelerationCurve: AnimationCurve.Linear(0f, 0f, 1f, 1f),
+            decelerationDuration: 1f,
+            decelerationCurve: AnimationCurve.Linear(0f, 1f, 1f, 0f));
+        var velocity = Vector3.zero;
+
+        EnterGroundedState(controller);
+        controller.UpdateVelocity(ref velocity, 0f);
+        Assert.That(velocity.x, Is.EqualTo(controller.MoveSpeed).Within(0.0001f));
+
+        controller.Context.SetFrameInput(new PlayerFrameInput(Vector2.zero, Vector2.zero, false, false, false));
+        controller.UpdateVelocity(ref velocity, 0.25f);
+
+        Assert.That(velocity.x, Is.EqualTo(4.5f).Within(0.0001f));
+        Assert.That(velocity.z, Is.EqualTo(0f).Within(0.0001f));
+    }
+
+    [Test]
+    public void UpdateVelocity_ComesToRestAfterDecelerationDuration()
+    {
+        var controller = CreateControllerWithInput(Vector2.right);
+        ConfigureMoveCurves(
+            controller,
+            accelerationDuration: 0f,
+            accelerationCurve: AnimationCurve.Linear(0f, 0f, 1f, 1f),
+            decelerationDuration: 0.5f,
+            decelerationCurve: AnimationCurve.Linear(0f, 1f, 1f, 0f));
+        var velocity = Vector3.zero;
+
+        EnterGroundedState(controller);
+        controller.UpdateVelocity(ref velocity, 0f);
+
+        controller.Context.SetFrameInput(new PlayerFrameInput(Vector2.zero, Vector2.zero, false, false, false));
+        controller.UpdateVelocity(ref velocity, 0.25f);
+        controller.UpdateVelocity(ref velocity, 0.25f);
+
+        Assert.That(velocity.x, Is.EqualTo(0f).Within(0.0001f));
+        Assert.That(velocity.z, Is.EqualTo(0f).Within(0.0001f));
+    }
+
     private PlayerCharacterController CreateControllerWithInput(Vector2 moveInput, bool jumpPressed = false, bool dashPressed = false)
     {
         _playerObject = new GameObject("Player");
@@ -434,6 +536,28 @@ public sealed class PlayerCharacterControllerTests
     {
         SetGrounded(controller, isGrounded: false);
         controller.PostGroundingUpdate(0f);
+    }
+
+    private static void ConfigureMoveAcceleration(
+        PlayerCharacterController controller,
+        float duration,
+        AnimationCurve curve)
+    {
+        SetPrivateField(controller, "_moveAccelerationDuration", duration);
+        SetPrivateField(controller, "_moveAccelerationCurve", curve);
+    }
+
+    private static void ConfigureMoveCurves(
+        PlayerCharacterController controller,
+        float accelerationDuration,
+        AnimationCurve accelerationCurve,
+        float decelerationDuration,
+        AnimationCurve decelerationCurve)
+    {
+        SetPrivateField(controller, "_moveAccelerationDuration", accelerationDuration);
+        SetPrivateField(controller, "_moveAccelerationCurve", accelerationCurve);
+        SetPrivateField(controller, "_moveDecelerationDuration", decelerationDuration);
+        SetPrivateField(controller, "_moveDecelerationCurve", decelerationCurve);
     }
 
     private static void SetPrivateField(object target, string fieldName, object value)

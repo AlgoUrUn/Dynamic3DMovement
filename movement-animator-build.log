@@ -1,0 +1,23 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+Built from '6000.3/staging' branch; Version is '6000.3.7f1 (696ec25a53d1) revision 6909634'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) Education' Language: 'ko' Physical Memory: 32555 MB
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-yls11" at "2026-04-21T13:24:07.0234705Z"
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1
+System  architecture: x64
+Process architecture: x64
+Date: 2026-04-21T13:24:07Z
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.3.7f1\Editor\Unity.exe
+-batchmode
+-nographics
+-projectPath
+C:\Users\yls11\Uni_Virtual_Projects\Dynamic 3D Movement
+-executeMethod
+MovementAnimatorControllerBuilder.Rebuild
+-logFile
+C:\Users\yls11\Uni_Virtual_Projects\Dynamic 3D Movement\movement-animator-build.log
+-quit
+Successfully changed project path to: C:\Users\yls11\Uni_Virtual_Projects\Dynamic 3D Movement
+C:/Users/yls11/Uni_Virtual_Projects/Dynamic 3D Movement
+Exiting without the bug reporter. Application will terminate with return code 1

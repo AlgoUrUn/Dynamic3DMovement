@@ -9,6 +9,10 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     [SerializeField] private WallEnvironmentHandler _wallEnvironmentHandler;
     [SerializeField] private StaminaManager _staminaManager;
     [SerializeField] private float _moveSpeed = 6f;
+    [SerializeField] private float _moveAccelerationDuration = 0.2f;
+    [SerializeField] private AnimationCurve _moveAccelerationCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+    [SerializeField] private float _moveDecelerationDuration = 0.2f;
+    [SerializeField] private AnimationCurve _moveDecelerationCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
     [SerializeField] private float _jumpSpeed = 8f;
     [SerializeField] private float _dashSpeed = 14f;
     [SerializeField] private float _dashDuration = 0.18f;
@@ -49,9 +53,17 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     public Vector3 CurrentWallNormal => _wallEnvironmentHandler != null ? _wallEnvironmentHandler.WallNormal : Vector3.zero;
     public bool CanWallSlideNow => _wallEnvironmentHandler != null && _wallEnvironmentHandler.CanWallSlide;
     public bool CanWallJumpNow => _wallEnvironmentHandler != null && _wallEnvironmentHandler.CanWallJump;
+    public float LastKnownPlanarSpeed { get; private set; }
 
     private LocomotionStateMachine _locomotionStateMachine;
     private ActionStateMachine _actionStateMachine;
+    private float _currentMoveSpeedMultiplier;
+    private float _moveBlendElapsed;
+    private float _moveBlendDuration;
+    private float _moveBlendStartMultiplier;
+    private float _moveBlendTargetMultiplier;
+    private bool _wasMoveInputActive;
+    private Vector3 _lastGroundedMoveDirection = Vector3.forward;
 
     private void Awake()
     {
@@ -94,9 +106,11 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
     /// </summary>
     public void UpdateVelocity(ref Vector3 currentVelocity, float deltaTime)
     {
+        UpdateMoveAcceleration(deltaTime);
         _locomotionStateMachine?.UpdateVelocity(ref currentVelocity, deltaTime);
         _actionStateMachine?.UpdateVelocity(ref currentVelocity, deltaTime);
         _wallEnvironmentHandler?.SetKinematicContext(GetMoveDirection(), currentVelocity, IsStableOnGround());
+        LastKnownPlanarSpeed = new Vector2(currentVelocity.x, currentVelocity.z).magnitude;
         LastKnownVerticalVelocity = currentVelocity.y;
     }
 
@@ -199,9 +213,10 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
 
     public void ApplyPlanarMovement(ref Vector3 currentVelocity)
     {
-        Vector3 moveDirection = GetMoveDirection();
-        currentVelocity.x = moveDirection.x * _moveSpeed;
-        currentVelocity.z = moveDirection.z * _moveSpeed;
+        Vector3 moveDirection = GetPlanarMovementDirection(currentVelocity);
+        float currentMoveSpeed = _moveSpeed * _currentMoveSpeedMultiplier;
+        currentVelocity.x = moveDirection.x * currentMoveSpeed;
+        currentVelocity.z = moveDirection.z * currentMoveSpeed;
     }
 
     public bool TryConsumeJump(ref Vector3 currentVelocity)
@@ -427,6 +442,101 @@ public sealed class PlayerCharacterController : MonoBehaviour, ICharacterControl
         }
 
         return 1f;
+    }
+
+    private void UpdateMoveAcceleration(float deltaTime)
+    {
+        bool hasMoveInput = HasMoveInput();
+        bool isGrounded = IsStableOnGround();
+
+        if (hasMoveInput)
+        {
+            Vector3 moveDirection = GetMoveDirection();
+            if (moveDirection.sqrMagnitude > 0.0001f)
+            {
+                _lastGroundedMoveDirection = moveDirection.normalized;
+            }
+        }
+
+        if (!isGrounded)
+        {
+            SetImmediateMoveSpeedMultiplier(hasMoveInput ? 1f : 0f);
+            _wasMoveInputActive = hasMoveInput;
+            return;
+        }
+
+        if (hasMoveInput != _wasMoveInputActive)
+        {
+            BeginMoveBlend(
+                _currentMoveSpeedMultiplier,
+                hasMoveInput ? 1f : 0f,
+                hasMoveInput ? _moveAccelerationDuration : _moveDecelerationDuration);
+        }
+
+        _wasMoveInputActive = hasMoveInput;
+
+        if (_moveBlendDuration <= 0f || deltaTime <= 0f)
+        {
+            _currentMoveSpeedMultiplier = _moveBlendTargetMultiplier;
+            return;
+        }
+
+        _moveBlendElapsed = Mathf.Min(_moveBlendElapsed + deltaTime, _moveBlendDuration);
+        float normalizedTime = _moveBlendElapsed / _moveBlendDuration;
+        AnimationCurve activeCurve = hasMoveInput ? _moveAccelerationCurve : _moveDecelerationCurve;
+        float blendFactor = EvaluateMoveCurve(activeCurve, normalizedTime);
+        _currentMoveSpeedMultiplier = hasMoveInput
+            ? Mathf.Lerp(_moveBlendStartMultiplier, _moveBlendTargetMultiplier, blendFactor)
+            : Mathf.Lerp(_moveBlendTargetMultiplier, _moveBlendStartMultiplier, blendFactor);
+    }
+
+    private Vector3 GetPlanarMovementDirection(Vector3 currentVelocity)
+    {
+        Vector3 moveDirection = GetMoveDirection();
+        if (moveDirection.sqrMagnitude > 0.0001f)
+        {
+            return moveDirection;
+        }
+
+        Vector3 planarVelocity = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
+        if (IsStableOnGround() && planarVelocity.sqrMagnitude > 0.0001f)
+        {
+            _lastGroundedMoveDirection = planarVelocity.normalized;
+        }
+
+        if (IsStableOnGroundNow() && _currentMoveSpeedMultiplier > 0f)
+        {
+            return _lastGroundedMoveDirection;
+        }
+
+        return Vector3.zero;
+    }
+
+    private void BeginMoveBlend(float startMultiplier, float targetMultiplier, float duration)
+    {
+        _moveBlendStartMultiplier = startMultiplier;
+        _moveBlendTargetMultiplier = targetMultiplier;
+        _moveBlendDuration = duration;
+        _moveBlendElapsed = 0f;
+    }
+
+    private void SetImmediateMoveSpeedMultiplier(float multiplier)
+    {
+        _currentMoveSpeedMultiplier = multiplier;
+        _moveBlendStartMultiplier = multiplier;
+        _moveBlendTargetMultiplier = multiplier;
+        _moveBlendDuration = 0f;
+        _moveBlendElapsed = 0f;
+    }
+
+    private static float EvaluateMoveCurve(AnimationCurve curve, float normalizedTime)
+    {
+        if (curve == null || curve.length == 0)
+        {
+            return 1f;
+        }
+
+        return Mathf.Clamp01(curve.Evaluate(Mathf.Clamp01(normalizedTime)));
     }
 
     private void LogWallDebugState(string phase)

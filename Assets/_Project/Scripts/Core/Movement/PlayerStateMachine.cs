@@ -5,12 +5,14 @@ public sealed class PlayerStateMachine : MonoBehaviour
     [SerializeField] private PlayerInputReader _inputReader;
     [SerializeField] private PlayerContext _context;
     [SerializeField] private PlayerCharacterController _controller;
+    [SerializeField] private PlayerAnimationController _animationController;
     [SerializeField] private bool _runAutomatically = true;
     [SerializeField] private bool _useExternalInputDriver = true;
 
     public PlayerInputReader InputReader => _inputReader;
     public PlayerContext Context => _context;
     public PlayerCharacterController Controller => _controller;
+    public PlayerAnimationController AnimationController => _animationController;
 
     private void Awake()
     {
@@ -42,6 +44,7 @@ public sealed class PlayerStateMachine : MonoBehaviour
             return;
         }
 
+        UpdateAnimation();
         _inputReader?.ClearFrameInput();
     }
 
@@ -70,6 +73,12 @@ public sealed class PlayerStateMachine : MonoBehaviour
         _controller?.SendIntentToMotor();
     }
 
+    public void UpdateAnimation()
+    {
+        ResolveReferences();
+        _animationController?.UpdateAnimation();
+    }
+
     private void ResolveReferences()
     {
         if (_inputReader == null)
@@ -85,6 +94,11 @@ public sealed class PlayerStateMachine : MonoBehaviour
         if (_controller == null)
         {
             _controller = GetComponent<PlayerCharacterController>();
+        }
+
+        if (_animationController == null)
+        {
+            _animationController = GetComponent<PlayerAnimationController>();
         }
     }
 

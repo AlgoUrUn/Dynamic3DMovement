@@ -55,6 +55,14 @@ public sealed class PlayerStateMachineTests : InputTestFixture
         Assert.That(controller.Motor.CharacterController, Is.EqualTo(controller));
     }
 
+    [Test]
+    public void ResolveReferences_FindsPlayerAnimationController()
+    {
+        var stateMachine = CreatePlayerStateMachine(out _, out _, out _);
+
+        Assert.That(stateMachine.AnimationController, Is.Not.Null);
+    }
+
     private PlayerStateMachine CreatePlayerStateMachine(
         out PlayerContext context,
         out PlayerInputReader inputReader,
@@ -67,6 +75,7 @@ public sealed class PlayerStateMachineTests : InputTestFixture
         context = _playerObject.AddComponent<PlayerContext>();
         inputReader = _playerObject.AddComponent<PlayerInputReader>();
         controller = _playerObject.AddComponent<PlayerCharacterController>();
+        _playerObject.AddComponent<PlayerAnimationController>();
         return _playerObject.AddComponent<PlayerStateMachine>();
     }
 
